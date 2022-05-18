@@ -862,7 +862,7 @@ dt.prototype.valid_client_message = function(j) {
 		this.connect_node.rtt = rtt;
 		//console.log(rtt + 'ms RTT to server');
 
-		this.connect_node.rtt_array.push(j.previous_rtt);
+		this.connect_node.rtt_array.push(rtt);
 		if (this.connect_node.rtt_array.length > 20) {
 			// keep the latest 20 by removing the first and oldest
 			this.connect_node.rtt_array.shift();
