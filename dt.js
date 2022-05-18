@@ -459,6 +459,16 @@ dt.prototype.clean = function() {
 			l++;
 		}
 
+		// send a long object to test
+		/*
+		var s = '';
+		while (l < 50000) {
+			s += 'a';
+			l++;
+		}
+		this.dt_object.server_send(this.dt_object.conn, {type: 'test', node_id: this.dt_object.node_id, test: s});
+		*/
+
 	}.bind({dt_object: this}), 5000);
 
 }
@@ -478,7 +488,9 @@ dt.prototype.server_send = function(conn, j) {
 
 	b = Buffer.concat([b, jsb]);
 
-	conn.write(b);
+	if (conn) {
+		conn.write(b);
+	}
 
 }
 
@@ -497,7 +509,9 @@ dt.prototype.client_send = function(j) {
 
 	b = Buffer.concat([b, jsb]);
 
-	this.client.write(b);
+	if (this.client) {
+		this.client.write(b);
+	}
 
 }
 
@@ -594,7 +608,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 			c++;
 		}
 
-		// tell the server that that a client connected 
+		// tell the server that a distant_node that is a client connected 
 		//console.log('sending distant_node to the server');
 		this.client_send({type: 'distant_node', ip: conn.remoteAddress, port: j.listening_port, node_id: j.node_id});
 
