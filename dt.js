@@ -417,6 +417,9 @@ dt.prototype.clean = function() {
 
 		console.log('\nsorting hosts by latency');
 
+		// test latency and expiration of nodes and distant nodes
+		// remember that the node_id changes each time the node is restarted
+
 		console.log('\tdistant nodes');
 		var c = 0;
 		while (c < this.dt_object.distant_nodes.length) {
