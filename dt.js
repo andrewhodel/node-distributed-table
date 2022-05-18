@@ -429,7 +429,7 @@ dt.prototype.clean = function() {
 		var l = 0;
 		while (l < this.dt_object.nodes.length) {
 			var n = this.dt_object.nodes[l];
-			console.log(n.type + ', ' + n.ip + ':' + n.port + ', ' + n.rtt + 'ms RTT, ' + n.failures + ' failures, node_id: ' + n.node_id);
+			console.log(n.type + ', ' + n.ip + ':' + n.port + ', ' + n.rtt + 'ms RTT, ' + n.failures + ' failures, node_id: ' + n.node_id + ', ' + ((Date.now() - n.last_connected) / 1000) + 's ago');
 			l++;
 		}
 
@@ -529,12 +529,14 @@ dt.prototype.valid_server_message = function(conn, j) {
 		// respond with pong
 		this.server_send(conn, {type: 'pong', node_id: this.self_node_id, ts: j.ts});
 
+		// set the last connected date
 		// set the rtt between this server and the client from j.previous_rtt
 		// this is calculated by the client, and all nodes in the network are trusted by using the same key
 		var c = 0;
 		while (c < this.nodes.length) {
 			if (this.nodes[c].node_id === j.node_id) {
 				this.nodes[c].rtt = j.previous_rtt;
+				this.nodes[c].last_connected = Date.now();
 				break;
 			}
 			c++;
@@ -608,6 +610,8 @@ dt.prototype.valid_client_message = function(j) {
 
 		this.connect_node.rtt = rtt;
 		//console.log(rtt + 'ms RTT to server');
+
+		this.connect_node.last_connected = Date.now();
 
 	} else if (j.type === 'distant_client_node') {
 		// a client node connected to this server node
