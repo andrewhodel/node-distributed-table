@@ -560,29 +560,57 @@ dt.prototype.valid_server_message = function(conn, j) {
 			} else if (this.nodes[c].type === 'client') {
 				if (this.nodes[c].conn) {
 					// a connection object means the node is connected
-					// tell client node that a client connected
-					this.server_send(this.nodes[c].conn, {type: 'distant_client_node', ip: conn.remoteAddress, port: j.listening_port, node_id: j.node_id});
+					// tell this client node that a client connected
+					this.server_send(this.nodes[c].conn, {type: 'distant_node', ip: conn.remoteAddress, port: j.listening_port, node_id: j.node_id});
 				}
 			}
 			c++;
 		}
 
 		// tell the server that that a client connected 
-		this.client_send({type: 'distant_client_node', ip: conn.remoteAddress, port: j.listening_port, node_id: j.node_id});
+		this.client_send({type: 'distant_node', ip: conn.remoteAddress, port: j.listening_port, node_id: j.node_id});
 
 		if (updated === false) {
 			// add or the node to this.nodes
 			this.nodes.push({ip: conn.remoteAddress, port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1})
 		}
 
-	} else if (j.type === 'distant_client_node') {
-		// a client node connected to this client node
+	} else if (j.type === 'distant_node') {
+		// the server node sent a distant node
 
-		console.log('the client node ' + j.node_id + ' has a new client that is a now a network node', j.ip, j.port);
+		var exists = false;
+		var l = 0;
+		while (l < this.distant_nodes.length) {
 
-		// add to this.distant_nodes that are tested for improved connection quality
-		// and may be added as nodes
-		this.distant_nodes.push({ip: j.ip, port: j.port, is_self: false, node_id: j.node_id, ts: Date.now()});
+			if (this.distant_nodes[l].node_id === j.node_id) {
+				exists = true;
+				this.distant_nodes[l].ts = Date.now();
+				break;
+			}
+
+			l++;
+
+		}
+
+		if (exists === false) {
+			// there is no existing path to this distant client
+
+			// add to this.distant_nodes that are tested for improved connection quality
+			// and may be added as nodes
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now()});
+
+			// send through to all the connected clients
+			var c = 0;
+			while (c < this.nodes.length) {
+				if (this.nodes[c].type === 'client') {
+					if (this.nodes[c].conn) {
+						this.server_send(this.nodes[c].conn, {type: 'distant_node', ip: j.ip, port: j.port, node_id: j.node_id});
+					}
+				}
+				c++;
+			}
+
+		}
 
 	}
 
@@ -617,14 +645,33 @@ dt.prototype.valid_client_message = function(j) {
 		// update the server's node_id
 		this.connect_node.node_id = j.node_id;
 
-	} else if (j.type === 'distant_client_node') {
-		// a client node connected to this server node
+	} else if (j.type === 'distant_node') {
+		// a client node sent a distant node
 
-		console.log('the server node ' + j.node_id + ' has a new client that is a now a network node', j.ip, j.port);
+		var exists = false;
+		var l = 0;
+		while (l < this.distant_nodes.length) {
 
-		// add to this.distant_nodes that are tested for improved connection quality
-		// and may be added as nodes
-		this.distant_nodes.push({ip: j.ip, port: j.port, is_self: false, node_id: j.node_id, ts: Date.now()});
+			if (this.distant_nodes[l].node_id === j.node_id) {
+				exists = true;
+				this.distant_nodes[l].ts = Date.now();
+				break;
+			}
+
+			l++;
+
+		}
+
+		if (exists === false) {
+			// there is no existing path to this distant client
+
+			// add to this.distant_nodes that are tested for improved connection quality
+			// and may be added as nodes
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now()});
+
+			// send through to the server
+			this.client_send({type: 'distant_node', ip: j.ip, port: j.port, node_id: j.node_id});
+		}
 
 	}
 
