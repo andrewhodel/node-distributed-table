@@ -435,9 +435,26 @@ dt.prototype.connect = function() {
 
 }
 
+dt.prototype.rtt_avg = function(r) {
+
+	if (r === undefined) {
+		return -1;
+	}
+
+	var sum = 0;
+	var c = 0;
+	while (c < r.length) {
+		sum += r[c];
+		c++;
+	}
+
+	return sum / c;
+
+}
+
 dt.prototype.test_distant_node = function(distant_node) {
 
-	console.log('testing distant_node', distant_node);
+	//console.log('testing distant_node', distant_node);
 
 	distant_node.test_start = Date.now();
 	distant_node.test_status = 'current';
@@ -503,6 +520,9 @@ dt.prototype.test_distant_node = function(distant_node) {
 						// test success at 20 pings
 						client.end();
 						distant_node.test_status = 'success';
+
+						console.log('distant_node test success, avg rtt', this.dt_object.rtt_avg(distant_node.rtt_array));
+
 					}
 
 				}
@@ -596,12 +616,17 @@ dt.prototype.clean = function() {
 		var c = 0;
 		while (c < this.dt_object.distant_nodes.length) {
 			var n = this.dt_object.distant_nodes[c];
-			console.log(n);
+			console.log(n.test_status + ', ' + n.ip + ':' + n.port + ', ' + n.rtt + 'ms RTT, node_id: ' + n.node_id + ', ' + ((Date.now() - n.test_start) / 1000) + 's ago, ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG');
 
 			if (n.test_status === 'pending') {
 
-				// run a latency test on this pending host
+				// start a latency test on this pending host
 				this.dt_object.test_distant_node(n);
+
+			} else if (n.test_status === 'success') {
+
+				// compare with other distant_nodes and nodes
+				// to ensure direct connectivity to the node with the lowest latency
 
 			}
 
@@ -612,7 +637,7 @@ dt.prototype.clean = function() {
 		var l = 0;
 		while (l < this.dt_object.nodes.length) {
 			var n = this.dt_object.nodes[l];
-			console.log(n.type + ', ' + n.ip + ':' + n.port + ', ' + n.rtt + 'ms RTT, ' + n.failures + ' failures, node_id: ' + n.node_id + ', ' + ((Date.now() - n.last_connected) / 1000) + 's ago', n.rtt_array);
+			console.log(n.type + ', ' + n.ip + ':' + n.port + ', ' + n.rtt + 'ms RTT, ' + n.failures + ' failures, node_id: ' + n.node_id + ', ' + ((Date.now() - n.last_connected) / 1000) + 's ago, ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG');
 
 			l++;
 		}
