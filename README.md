@@ -12,7 +12,7 @@ node example_node.js 9555
 
 Copy the example.
 
-You can `dt.add_object()`, `dt.remove_object()` and listen for `started`, `add`, and `remove` events from `dt.emitter`.
+You can `dt.add_object()`, `dt.remove_object()` and listen for `started`, `add`, and `remove` events with `dt.emitter.addListener()`.
 
 Everything is synchronized on every node in memory.
 
