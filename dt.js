@@ -611,7 +611,11 @@ dt.prototype.valid_client_message = function(j) {
 		this.connect_node.rtt = rtt;
 		//console.log(rtt + 'ms RTT to server');
 
+		// update the last_connected date
 		this.connect_node.last_connected = Date.now();
+
+		// update the server's node_id
+		this.connect_node.node_id = j.node_id;
 
 	} else if (j.type === 'distant_client_node') {
 		// a client node connected to this server node
