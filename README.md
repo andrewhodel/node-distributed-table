@@ -14,7 +14,9 @@ Copy the example.
 
 You can `dt.add_object()`, `dt.remove_object()` and listen for `started`, `add`, and `remove` events with `dt.emitter.addListener()`.
 
-Everything is synchronized on every node in memory.
+Everything is synchronized on every node.
+
+All the work is done in memory.
 
 # security
 
