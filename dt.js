@@ -78,7 +78,7 @@ var dt = function(config) {
 			process.exit(1);
 		}
 
-		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, type: 'initial', failures: 0, node_id: null, rtt: -1})
+		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, type: 'initial', failures: 0, node_id: null, rtt: -1, rtt_array: []})
 
 		c++;
 
@@ -90,6 +90,7 @@ var dt = function(config) {
 	this.ip_ac = ipac.init();
 
 	console.log('creating new dt node', config);
+	console.log('node_id', this.node_id);
 
 	this.server = net.createServer((conn) => {
 		// 'connection' listener.
@@ -434,6 +435,154 @@ dt.prototype.connect = function() {
 
 }
 
+dt.prototype.test_distant_node = function(distant_node) {
+
+	console.log('testing distant_node', distant_node);
+
+	distant_node.test_start = Date.now();
+	distant_node.test_status = 'current';
+	distant_node.rtt = -1;
+	distant_node.rtt_array = [];
+
+	// distant node ping
+	var ping;
+	var recieved_pings = 0;
+
+	var client = net.connect({port: distant_node.port, host: distant_node.ip, keepAlive: true}, function() {
+		// 'connect' listener.
+		console.log('connected to distant_node to test latency', distant_node.ip, distant_node.port);
+
+		// send node_id
+		//distant_node.client_send({type: 'open', node_id: distant_node.node_id, listening_port: distant_node.port});
+
+		// ping the server
+		// and send the previous rtt
+		ping = setInterval(function() {
+
+			// send with this node's node_id
+			this.dt_object.client_send({type: 'distant_node_ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: distant_node.rtt}, client);
+
+		}.bind({dt_object: this.dt_object}), 2000);
+
+	}.bind({dt_object: this}));
+
+	// set client timeout of the socket
+	client.setTimeout(this.timeout);
+
+	var data = Buffer.alloc(0);
+	var data_len = 0;
+
+	var test_all_data = function() {
+
+		//console.log('test_all_data()', data_len, data.length);
+		if (data_len === data.length) {
+
+			// decrypt
+			var decrypted = this.dt_object.decrypt(data);
+			//console.log('decrypted', decrypted.length, decrypted.toString());
+
+			// reset data and data_len
+			data = Buffer.alloc(0);
+			data_len = 0;
+
+			try {
+				// decrypted is a valid message
+				var j = JSON.parse(decrypted);
+
+				if (j.type === 'distant_node_pong') {
+					// calculate the rtt between this node and the server it is connected to
+					var rtt = Date.now() - j.ts;
+
+					distant_node.rtt = rtt;
+					//console.log(rtt + 'ms RTT to server');
+
+					distant_node.rtt_array.push(rtt);
+
+					recieved_pings++;
+					if (recieved_pings >= 20) {
+						// test success at 20 pings
+						client.end();
+						distant_node.test_status = 'success';
+					}
+
+				}
+
+			} catch (err) {
+				client.end();
+				distant_node.test_status = 'failed';
+			}
+
+			return;
+
+		}
+
+		// not finished
+		return;
+
+	}.bind({dt_object: this});
+
+	client.on('data', (chunk) => {
+
+		if (data.length === 0) {
+			// first chunk
+
+			// read length
+			data_len = chunk.readUInt32BE(0);
+
+			//console.log('first chunk, data length', data_len);
+
+			// add to data without length
+			data = Buffer.concat([data, chunk.slice(4)]);
+
+			test_all_data();
+
+		} else if (data_len > data.length) {
+
+			// continue to read through data_len
+			data = Buffer.concat([data, chunk]);
+
+			test_all_data();
+
+		} else if (data_len === data.length) {
+
+			test_all_data();
+
+		} else {
+
+			// disconnect/reconnect
+			// data was manipulated or lost in transit
+			client.end();
+			distant_node.test_status = 'failed';
+
+		}
+
+	});
+
+	client.on('end', () => {
+
+		// stop pinging
+		clearInterval(ping);
+
+		console.log('disconnected from server');
+
+	});
+
+	client.on('timeout', () => {
+
+		console.error('timeout connecting to distant_node to test latency', this.dt_object.connect_node);
+		distant_node.test_status = 'failed';
+
+	});
+
+	client.on('error', (err) => {
+
+		console.error('error connecting to distant_node to test latency', distant_node, err);
+		distant_node.test_status = 'failed';
+
+	});
+
+}
+
 dt.prototype.clean = function() {
 
 	setInterval(function() {
@@ -448,6 +597,14 @@ dt.prototype.clean = function() {
 		while (c < this.dt_object.distant_nodes.length) {
 			var n = this.dt_object.distant_nodes[c];
 			console.log(n);
+
+			if (n.test_status === 'pending') {
+
+				// run a latency test on this pending host
+				this.dt_object.test_distant_node(n);
+
+			}
+
 			c++;
 		}
 
@@ -455,7 +612,8 @@ dt.prototype.clean = function() {
 		var l = 0;
 		while (l < this.dt_object.nodes.length) {
 			var n = this.dt_object.nodes[l];
-			console.log(n.type + ', ' + n.ip + ':' + n.port + ', ' + n.rtt + 'ms RTT, ' + n.failures + ' failures, node_id: ' + n.node_id + ', ' + ((Date.now() - n.last_connected) / 1000) + 's ago');
+			console.log(n.type + ', ' + n.ip + ':' + n.port + ', ' + n.rtt + 'ms RTT, ' + n.failures + ' failures, node_id: ' + n.node_id + ', ' + ((Date.now() - n.last_connected) / 1000) + 's ago', n.rtt_array);
+
 			l++;
 		}
 
@@ -494,7 +652,9 @@ dt.prototype.server_send = function(conn, j) {
 
 }
 
-dt.prototype.client_send = function(j) {
+dt.prototype.client_send = function(j, client=null) {
+
+	// use client to send to a client that is not the main node client
 
 	// expects a JSON object
 
@@ -509,7 +669,11 @@ dt.prototype.client_send = function(j) {
 
 	b = Buffer.concat([b, jsb]);
 
-	if (this.client) {
+	if (client) {
+		// this is to a distant node
+		client.write(b);
+	} else if (this.client) {
+		// send to the main node client
 		this.client.write(b);
 	}
 
@@ -562,9 +726,11 @@ dt.prototype.valid_server_message = function(conn, j) {
 	//console.log('valid server message', j);
 
 	if (j.node_id === this.node_id) {
-		// disconnect self
 		// tell the client that it connected to itself
 		this.server_send(conn, {type: 'is_self', node_id: this.node_id});
+	} else if (j.type === 'distant_node_ping') {
+		// respond with pong
+		this.server_send(conn, {type: 'distant_node_pong', node_id: this.node_id, ts: j.ts});
 	} else if (j.type === 'ping') {
 		// respond with pong
 		this.server_send(conn, {type: 'pong', node_id: this.node_id, ts: j.ts});
@@ -577,6 +743,13 @@ dt.prototype.valid_server_message = function(conn, j) {
 			if (this.nodes[c].node_id === j.node_id) {
 				this.nodes[c].rtt = j.previous_rtt;
 				this.nodes[c].last_connected = Date.now();
+
+				this.nodes[c].rtt_array.push(j.previous_rtt);
+				if (this.nodes[c].rtt_array.length > 20) {
+					// keep the latest 20 by removing the first and oldest
+					this.nodes[c].rtt_array.shift();
+				}
+
 				break;
 			}
 			c++;
@@ -595,7 +768,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			if (this.nodes[c].node_id === j.node_id) {
 				// update the node in this.nodes
-				this.nodes[c] = {ip: conn.remoteAddress, port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1};
+				this.nodes[c] = {ip: conn.remoteAddress, port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1, rtt_array: []};
 				updated = true;
 			} else if (this.nodes[c].type === 'client') {
 				if (this.nodes[c].conn) {
@@ -614,7 +787,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		if (updated === false) {
 			// add or the node to this.nodes
-			this.nodes.push({ip: conn.remoteAddress, port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1})
+			this.nodes.push({ip: conn.remoteAddress, port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1, rtt_array: []})
 		}
 
 	} else if (j.type === 'distant_node') {
@@ -639,7 +812,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now()});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now(), test_status: 'pending'});
 
 			// the distant node may need to know of this node
 			// send a distant_node message of this node to the client
@@ -689,6 +862,12 @@ dt.prototype.valid_client_message = function(j) {
 		this.connect_node.rtt = rtt;
 		//console.log(rtt + 'ms RTT to server');
 
+		this.connect_node.rtt_array.push(j.previous_rtt);
+		if (this.connect_node.rtt_array.length > 20) {
+			// keep the latest 20 by removing the first and oldest
+			this.connect_node.rtt_array.shift();
+		}
+
 		// update the last_connected date
 		this.connect_node.last_connected = Date.now();
 
@@ -723,7 +902,7 @@ dt.prototype.valid_client_message = function(j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now()});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now(), test_status: 'pending'});
 
 		}
 
