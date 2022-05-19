@@ -602,6 +602,18 @@ dt.prototype.test_distant_node = function(distant_node) {
 
 }
 
+dt.prototype.clean_remote_address = function(r) {
+
+	// socket.remoteAddress often has ::ffff: at the start and should not
+
+	if (r.indexOf('::ffff:') === 0) {
+		r = r.substring(7);
+	}
+
+	return r;
+
+}
+
 dt.prototype.clean = function() {
 
 	setInterval(function() {
@@ -792,14 +804,14 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			if (this.nodes[c].node_id === j.node_id) {
 				// update the node in this.nodes
-				this.nodes[c] = {ip: conn.remoteAddress, port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1, rtt_array: []};
+				this.nodes[c] = {ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1, rtt_array: []};
 				updated = true;
 			} else if (this.nodes[c].type === 'client') {
 				if (this.nodes[c].conn) {
 					// a connection object means the node is connected
 					// tell this client node that a client connected
 					//console.log('sending distant_node to a client');
-					this.server_send(this.nodes[c].conn, {type: 'distant_node', ip: conn.remoteAddress, port: j.listening_port, node_id: j.node_id});
+					this.server_send(this.nodes[c].conn, {type: 'distant_node', ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, node_id: j.node_id});
 				}
 			}
 			c++;
@@ -807,11 +819,11 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		// tell the server that a distant_node that is a client connected 
 		//console.log('sending distant_node to the server');
-		this.client_send({type: 'distant_node', ip: conn.remoteAddress, port: j.listening_port, node_id: j.node_id});
+		this.client_send({type: 'distant_node', ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, node_id: j.node_id});
 
 		if (updated === false) {
 			// add or the node to this.nodes
-			this.nodes.push({ip: conn.remoteAddress, port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1, rtt_array: []})
+			this.nodes.push({ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, is_self: false, type: 'client', failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_connected: Date.now(), rtt: -1, rtt_array: []})
 		}
 
 	} else if (j.type === 'distant_node') {
@@ -842,7 +854,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 			// send a distant_node message of this node to the client
 			// with ip: null so that the client knows to use socket.remoteAddress
 			// there is no requirement to do this more than once
-			this.server_send(this.nodes[c].conn, {type: 'distant_node', ip: null, port: this.port, node_id: this.node_id});
+			this.server_send(conn, {type: 'distant_node', ip: null, port: this.port, node_id: this.node_id});
 
 			// send through to all the connected clients
 			var c = 0;
@@ -904,7 +916,7 @@ dt.prototype.valid_client_message = function(j) {
 		if (j.ip === null) {
 			// this is a server node sending itself to a client that sent a distant_node
 			// replace the null ip with socket.remoteAddress
-			j.ip = this.client.socket.remoteAddress;
+			j.ip = this.clean_remote_address(this.client.socket.remoteAddress);
 		}
 
 		var exists = false;
