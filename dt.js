@@ -66,6 +66,7 @@ var dt = function(config) {
 	this.timeout = Number(config.timeout);
 	this.ping_interval = Number(config.ping_interval);
 	this.distant_nodes = [];
+	this.objects = [];
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -132,7 +133,20 @@ var dt = function(config) {
 					// this is an authorized connection
 					ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
 
+					/*
+					// send object_diff
+					var o_diff = [];
+					var n = 0;
+					while (n < this.dt_object.objects.length) {
+						// add the sha256 checksum to the array
+						o_diff.push(this.dt_object.objects[n][0]);
+						n++;
+					}
+					this.dt_object.server_send(conn, {type: 'object_diff', object_diff: o_diff});
+					*/
+
 				} catch (err) {
+					console.error('error in server with a client authorization', err);
 					// if the decrypted message does not parse into JSON
 					// this is an invalid connection
 					ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
@@ -178,6 +192,7 @@ var dt = function(config) {
 
 				// disconnect/reconnect
 				// data was manipulated or lost in transit
+				console.error('server data recieve error', chunk.toString(), data.toString());
 				conn.end();
 
 			}
@@ -291,6 +306,18 @@ dt.prototype.connect = function() {
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
+			/*
+			// send object_diff
+			var o_diff = [];
+			var n = 0;
+			while (n < this.dt_object.objects.length) {
+				// add the sha256 checksum to the array
+				o_diff.push(this.dt_object.objects[n][0]);
+				n++;
+			}
+			this.dt_object.client_send({type: 'object_diff', object_diff: o_diff});
+			*/
+
 			// ping the server
 			// and send the previous rtt
 			ping = setInterval(function() {
@@ -347,6 +374,7 @@ dt.prototype.connect = function() {
 					// decrypted is a valid message
 					this.dt_object.valid_client_message(JSON.parse(decrypted));
 				} catch (err) {
+					console.error('error in primary client authorization to server', err);
 				}
 
 				return;
@@ -388,6 +416,7 @@ dt.prototype.connect = function() {
 
 				// disconnect/reconnect
 				// data was manipulated or lost in transit
+				console.error('client data recieve error', chunk.toString(), data.toString());
 				this.dt_object.client.end();
 
 			}
@@ -587,6 +616,7 @@ dt.prototype.test_distant_node = function(distant_node) {
 				}
 
 			} catch (err) {
+				console.error('error with distant_node test', err);
 				client.end();
 				distant_node.test_status = 'failed';
 			}
@@ -630,6 +660,7 @@ dt.prototype.test_distant_node = function(distant_node) {
 
 			// disconnect/reconnect
 			// data was manipulated or lost in transit
+			console.error('data recieve error in distant node test', chunk.toString(), data.toString());
 			client.end();
 			distant_node.test_status = 'failed';
 
@@ -677,6 +708,10 @@ dt.prototype.clean_remote_address = function(r) {
 dt.prototype.clean = function() {
 
 	setInterval(function() {
+
+		return;
+		// needs connection selection routine
+		// based on long >5m intervals
 
 		console.log('\nsorting hosts by latency');
 
@@ -750,7 +785,8 @@ dt.prototype.server_send = function(conn, j) {
 
 dt.prototype.client_send = function(j, client=null) {
 
-	// use client to send to a client that is not the main node client
+	// send to a server
+	// as the client
 
 	// expects a JSON object
 
@@ -765,11 +801,11 @@ dt.prototype.client_send = function(j, client=null) {
 
 	b = Buffer.concat([b, jsb]);
 
-	if (client) {
+	if (client !== null) {
 		// this is to a distant node
 		client.write(b);
 	} else if (this.client) {
-		// send to the main node client
+		// send as the primary client
 		this.client.write(b);
 	}
 
@@ -818,8 +854,8 @@ dt.prototype.encrypt = function(b) {
 dt.prototype.valid_server_message = function(conn, j) {
 
 	// j is a valid message object
-	// that was sent to the server
-	//console.log('valid server message', j);
+	// that was sent to this server
+	//console.log('valid message to server', j);
 
 	if (j.node_id === this.node_id) {
 		// tell the client that it connected to itself
@@ -887,7 +923,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		}
 
 	} else if (j.type === 'distant_node') {
-		// the server node sent a distant node
+		// the client node sent a distant node
 
 		var exists = false;
 		var l = 0;
@@ -930,6 +966,49 @@ dt.prototype.valid_server_message = function(conn, j) {
 			}
 
 		}
+
+	} else if (j.type === 'add_object') {
+
+		// the client node sent an object
+
+		// get the hash
+		var sha256_hash = this.object_sha256_hash(j.object);
+
+		// make sure it does not already exist
+		var c = 0;
+		while (c < this.objects.length) {
+			var obj = this.objects[c];
+			if (obj[0] === sha256_hash) {
+				return;
+			}
+			c++;
+		}
+
+		// this.objects is an array of [sha265_hash, object]
+		var o = [sha256_hash, j.object];
+		this.objects.push(o);
+
+		console.log('client sent add_object to this node', o, this.objects.length);
+
+		// send the object to the server
+		this.client_send({type: 'add_object', object: j.object});
+
+		// send to all the connected clients except this one
+		var c = 0;
+		while (c < this.nodes.length) {
+			// except the one that sent it
+			if (this.nodes[c].type === 'client' && this.nodes[c].node_id !== conn.node_id) {
+				if (this.nodes[c].conn) {
+					this.server_send(this.nodes[c].conn, {type: 'add_object', object: j.object});
+				}
+			}
+			c++;
+		}
+
+	} else if (j.type === 'object_diff') {
+
+		// a client node sent it's list of object sha256 checksums/hashes
+		console.log('client node sent object_diff', j);
 
 	}
 
@@ -1002,13 +1081,106 @@ dt.prototype.valid_client_message = function(j) {
 
 		}
 
+	} else if (j.type === 'add_object') {
+
+		// the server node sent an object
+
+		// get the hash
+		var sha256_hash = this.object_sha256_hash(j.object);
+
+		// make sure it does not already exist
+		var c = 0;
+		while (c < this.objects.length) {
+			var obj = this.objects[c];
+			if (obj[0] === sha256_hash) {
+				return;
+			}
+			c++;
+		}
+
+		// this.objects is an array of [sha265_hash, object]
+		var o = [sha256_hash, j.object];
+		this.objects.push(o);
+
+		console.log('server sent add_object to this node', o, this.objects.length);
+
+		// send to all the connected clients
+		var c = 0;
+		while (c < this.nodes.length) {
+			if (this.nodes[c].type === 'client') {
+				if (this.nodes[c].conn) {
+					this.server_send(this.nodes[c].conn, {type: 'add_object', object: j.object});
+				}
+			}
+			c++;
+		}
+
+	} else if (j.type === 'object_diff') {
+
+		// the server node sent it's list of object sha256 checksums/hashes
+		console.log('server node sent object_diff', j);
+
 	}
+
+}
+
+dt.prototype.object_sha256_hash = function(j) {
+
+	// an object must be sorted to be hashed
+
+	// all sub objects should be sorted too
+
+	// sort the object keys alphabetically
+	const ordered = Object.keys(j).sort().reduce(
+		(obj, key) => {
+			obj[key] = j[key];
+			return obj;
+		},
+	{}
+	);
+
+	// create a sha256 hash from the object
+	var sha256_hash = crypto.createHash('sha256');
+	sha256_hash.update(JSON.stringify(ordered));;
+
+	return sha256_hash.digest('hex');
 
 }
 
 dt.prototype.add_object = function(j) {
 
 	// add an object to all the nodes in the network
+
+	// get the hash
+	var sha256_hash = this.object_sha256_hash(j);
+
+	// make sure it does not already exist
+	var c = 0;
+	while (c < this.objects.length) {
+		var obj = this.objects[c];
+		if (obj[0] === sha256_hash) {
+			return {error: true, error_msg: 'object already exists'};
+		}
+		c++;
+	}
+
+	// this.objects is an array of [sha265_hash, object]
+	var o = [sha256_hash, j];
+	this.objects.push(o);
+
+	// send the object to the server
+	this.client_send({type: 'add_object', object: j});
+
+	// send the object to all the clients
+	var c = 0;
+	while (c < this.nodes.length) {
+		if (this.nodes[c].type === 'client') {
+			if (this.nodes[c].conn) {
+				this.server_send(this.nodes[c].conn, {type: 'add_object', object: j});
+			}
+		}
+		c++;
+	}
 
 }
 
