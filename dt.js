@@ -89,8 +89,7 @@ var dt = function(config) {
 
 	this.ip_ac = ipac.init();
 
-	console.log('creating new dt node', config);
-	console.log('node_id', this.node_id);
+	console.log('creating new dt node', this.port, this.node_id);
 
 	this.server = net.createServer((conn) => {
 		// 'connection' listener.
@@ -280,14 +279,14 @@ dt.prototype.connect = function() {
 			return;
 		}
 
-		console.log('node with lowest failures', this.dt_object.connect_node);
+		console.log('node with lowest failures', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
 
 		// ping the server
 		var ping;
 
 		this.dt_object.client = net.connect({port: this.dt_object.connect_node.port, host: this.dt_object.connect_node.ip, keepAlive: true}, () => {
 			// 'connect' listener.
-			console.log('connected', this.dt_object.connect_node.ip);
+			console.log('primary client connected to', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
 
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
@@ -400,7 +399,7 @@ dt.prototype.connect = function() {
 			// stop pinging
 			clearInterval(ping);
 
-			console.log('disconnected from server');
+			console.log('node disconnected from server node', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
 
 			// reconnect to the network
 			this.dt_object.connect();
@@ -409,7 +408,7 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('timeout', () => {
 
-			console.error('timeout connecting to node', this.dt_object.connect_node);
+			console.error('timeout connecting to node', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
 
 			// a connection timeout is a failure
 			this.dt_object.connect_node.failures++;
@@ -421,7 +420,7 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('error', (err) => {
 
-			console.error('error connecting to node', this.dt_object.connect_node, err);
+			console.error('error connecting to node', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect.node_id, err.toString());
 
 			// a connection error is a failure
 			this.dt_object.connect_node.failures++;
@@ -583,20 +582,20 @@ dt.prototype.test_distant_node = function(distant_node) {
 		// stop pinging
 		clearInterval(ping);
 
-		console.log('disconnected from server');
+		console.log('disconnected from distant_node', distant_node.ip, distant_node.port, distant_node.node_id);
 
 	});
 
 	client.on('timeout', () => {
 
-		console.error('timeout connecting to distant_node to test latency', this.dt_object.connect_node);
+		console.error('timeout connecting to distant_node to test latency', distant_node.ip, distant_node.port, distant_node.node_id);
 		distant_node.test_status = 'failed';
 
 	});
 
 	client.on('error', (err) => {
 
-		console.error('error connecting to distant_node to test latency', distant_node, err);
+		console.error('error connecting to distant_node to test latency', distant_node.ip, distant_node.port, distant_node.node_id, err.toString());
 		distant_node.test_status = 'failed';
 
 	});
