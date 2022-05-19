@@ -453,6 +453,39 @@ dt.prototype.rtt_avg = function(r) {
 
 dt.prototype.test_distant_node = function(distant_node) {
 
+	// a distant_node could have been sent with no node_id from another node that has it as an initial node
+	// and then again from a node that relayed it as a distant node.  It would be added twice
+	// because the node_id was not found when adding
+
+	// the origin node sending it with no node_id could do a distant test before sending it to gather the node id
+	// but that would not ensure sending the initial node as a distant node if there was a network connection issue between
+	// the origin node and that initial node
+
+	// the solution is to not run a distant node test until all other nodes with the same ip and port have a test that is not pending
+
+	// that will remove the node with a null node_id if a current test of that ip and port succeeds
+	// and test it if any test of that ip and port fails
+
+	var c = 0;
+	while (c < this.distant_nodes.length) {
+		var n = this.distant_nodes[c];
+
+		if (distant_node.ip === n.ip && distant_node.port === n.port) {
+
+			// same ip and port
+			if (distant_node.node_id === n.node_id) {
+				// this is the same node as distant_node
+			} else if (distant_node.test_status !== 'current') {
+				// this is another node with this ip and port that is currently being tested
+				// this node will be tested again if the current test does not succeed and remove it by matching the ip and port
+				return;
+			}
+		}
+
+		c++;
+
+	}
+
 	//console.log('testing distant_node', distant_node);
 
 	distant_node.test_start = Date.now();
@@ -521,6 +554,23 @@ dt.prototype.test_distant_node = function(distant_node) {
 						distant_node.test_status = 'success';
 
 						console.log('distant_node test success, avg rtt', this.dt_object.rtt_avg(distant_node.rtt_array));
+
+						// remove any distant_node entries that have the same ip and port
+						// as the node_id may have changed
+						var c = this.dt_object.distant_nodes.length-1;
+						while (c >= 0) {
+							var n = this.dt_object.distant_nodes[c];
+							if (n.node_id === distant_node.node_id) {
+								// this is the same entry
+							} else {
+								if (n.ip === distant_node.ip && n.port === distant_node.port) {
+									// this is another entry with the same ip and port but a different node_id
+									// remove it because only one node can run on a single IP and port
+									this.dt_object.distant_nodes.splice(c, 1);
+								}
+							}
+							c--;
+						}
 
 					}
 
