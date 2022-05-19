@@ -979,6 +979,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		while (c < this.objects.length) {
 			var obj = this.objects[c];
 			if (obj[0] === sha256_hash) {
+				console.log('client sent duplicate object in add_object', j.object);
 				return;
 			}
 			c++;
@@ -1093,6 +1094,7 @@ dt.prototype.valid_client_message = function(j) {
 		while (c < this.objects.length) {
 			var obj = this.objects[c];
 			if (obj[0] === sha256_hash) {
+				console.log('server sent duplicate object in add_object', j.object);
 				return;
 			}
 			c++;

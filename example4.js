@@ -8,7 +8,7 @@ dt_node.emitter.addListener('started', function() {
 	console.log('distributed table "started" event');
 
 	// use add_object()
-	setInterval(function() {
+	setTimeout(function() {
 		dt_node.add_object({test: 'test'});
 	}, 5000);
 
