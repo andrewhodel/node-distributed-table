@@ -1,11 +1,12 @@
 # example
 
-Start some nodes.
+Run 4 nodes, each on a different port on localhost.
 
 ```
-node example_node.js
-
-node example_node.js 9555
+node example1.js
+node example2.js
+node example3.js
+node example4.js
 ```
 
 # implement
