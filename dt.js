@@ -114,36 +114,50 @@ var dt = function(config) {
 		var test_all_data = function() {
 
 			//console.log('test_all_data()', data_len, data.length);
-			if (data_len === data.length) {
+			if (data_len <= data.length) {
 
-				// decrypt
-				var decrypted = this.dt_object.decrypt(data);
+				// decrypt the data_len
+				var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
 				//console.log('decrypted', decrypted.length, decrypted.toString());
 
-				// reset data and data_len
-				data = Buffer.alloc(0);
-				data_len = 0;
+				if (data.length > data_len) {
+
+					// there are multiple messages
+					data_len = data.readUInt32BE(0);
+					data = data.subarray(4, data.length);
+
+					// continue parsing
+					test_all_data();
+
+				} else {
+					// reset data and data_len
+					data = Buffer.alloc(0);
+					data_len = 0;
+				}
 
 				try {
 
 					// decrypted is a valid message
-					this.dt_object.valid_server_message(conn, JSON.parse(decrypted));
+					var vm = JSON.parse(decrypted);
+					this.dt_object.valid_server_message(conn, vm);
 
-					// if the decrypted message parses into JSON
-					// this is an authorized connection
-					ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
+					// type open is the first message
+					if (vm.type === 'open') {
 
-					/*
-					// send object_diff
-					var o_diff = [];
-					var n = 0;
-					while (n < this.dt_object.objects.length) {
-						// add the sha256 checksum to the array
-						o_diff.push(this.dt_object.objects[n][0]);
-						n++;
+						// this is an authorized connection
+						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
+
+						// send object_diff
+						var o_diff = [];
+						var n = 0;
+						while (n < this.dt_object.objects.length) {
+							// add the sha256 checksum to the array
+							o_diff.push(this.dt_object.objects[n][0]);
+							n++;
+						}
+						this.dt_object.server_send(conn, {type: 'object_diff', object_diff: o_diff});
+
 					}
-					this.dt_object.server_send(conn, {type: 'object_diff', object_diff: o_diff});
-					*/
 
 				} catch (err) {
 					console.error('error in server with a client authorization', err);
@@ -173,7 +187,7 @@ var dt = function(config) {
 				//console.log('first chunk, data length', data_len);
 
 				// add to data without length
-				data = Buffer.concat([data, chunk.slice(4)]);
+				data = chunk.subarray(4);
 
 				test_all_data();
 
@@ -306,7 +320,6 @@ dt.prototype.connect = function() {
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
-			/*
 			// send object_diff
 			var o_diff = [];
 			var n = 0;
@@ -316,7 +329,6 @@ dt.prototype.connect = function() {
 				n++;
 			}
 			this.dt_object.client_send({type: 'object_diff', object_diff: o_diff});
-			*/
 
 			// ping the server
 			// and send the previous rtt
@@ -360,15 +372,26 @@ dt.prototype.connect = function() {
 		var test_all_data = function() {
 
 			//console.log('test_all_data()', data_len, data.length);
-			if (data_len === data.length) {
+			if (data_len <= data.length) {
 
-				// decrypt
-				var decrypted = this.dt_object.decrypt(data);
+				// decrypt the data_len
+				var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
 				//console.log('decrypted', decrypted.length, decrypted.toString());
 
-				// reset data and data_len
-				data = Buffer.alloc(0);
-				data_len = 0;
+				if (data.length > data_len) {
+
+					// there are multiple messages
+					data_len = data.readUInt32BE(0);
+					data = data.subarray(4, data.length);
+
+					// continue parsing
+					test_all_data();
+
+				} else {
+					// reset data and data_len
+					data = Buffer.alloc(0);
+					data_len = 0;
+				}
 
 				try {
 					// decrypted is a valid message
@@ -397,7 +420,7 @@ dt.prototype.connect = function() {
 				//console.log('first chunk, data length', data_len);
 
 				// add to data without length
-				data = Buffer.concat([data, chunk.slice(4)]);
+				data = chunk.subarray(4);
 
 				test_all_data();
 
@@ -559,15 +582,26 @@ dt.prototype.test_distant_node = function(distant_node) {
 	var test_all_data = function() {
 
 		//console.log('test_all_data()', data_len, data.length);
-		if (data_len === data.length) {
+		if (data_len <= data.length) {
 
-			// decrypt
-			var decrypted = this.dt_object.decrypt(data);
+			// decrypt the data_len
+			var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
 			//console.log('decrypted', decrypted.length, decrypted.toString());
 
-			// reset data and data_len
-			data = Buffer.alloc(0);
-			data_len = 0;
+			if (data.length > data_len) {
+
+				// there are multiple messages
+				data_len = data.readUInt32BE(0);
+				data = data.subarray(4, data.length);
+
+				// continue parsing
+				test_all_data();
+
+			} else {
+				// reset data and data_len
+				data = Buffer.alloc(0);
+				data_len = 0;
+			}
 
 			try {
 				// decrypted is a valid message
@@ -641,7 +675,7 @@ dt.prototype.test_distant_node = function(distant_node) {
 			//console.log('first chunk, data length', data_len);
 
 			// add to data without length
-			data = Buffer.concat([data, chunk.slice(4)]);
+			data = chunk.subarray(4);
 
 			test_all_data();
 
@@ -1009,7 +1043,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 	} else if (j.type === 'object_diff') {
 
 		// a client node sent it's list of object sha256 checksums/hashes
-		console.log('client node sent object_diff', j);
+		console.log('client node sent object_diff', j, this.objects);
 
 	}
 
@@ -1056,7 +1090,7 @@ dt.prototype.valid_client_message = function(j) {
 		if (j.ip === null) {
 			// this is a server node sending itself to a client that sent a distant_node
 			// replace the null ip with socket.remoteAddress
-			j.ip = this.clean_remote_address(this.client.socket.remoteAddress);
+			j.ip = this.clean_remote_address(this.client.remoteAddress);
 		}
 
 		var exists = false;
@@ -1120,7 +1154,7 @@ dt.prototype.valid_client_message = function(j) {
 	} else if (j.type === 'object_diff') {
 
 		// the server node sent it's list of object sha256 checksums/hashes
-		console.log('server node sent object_diff', j);
+		console.log('server node sent object_diff', j, this.objects);
 
 	}
 
