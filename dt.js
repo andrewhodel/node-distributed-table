@@ -466,6 +466,7 @@ dt.prototype.test_distant_node = function(distant_node) {
 	// that will remove the node with a null node_id if a current test of that ip and port succeeds
 	// and test it if any test of that ip and port fails
 
+	/*
 	var c = 0;
 	while (c < this.distant_nodes.length) {
 		var n = this.distant_nodes[c];
@@ -485,6 +486,7 @@ dt.prototype.test_distant_node = function(distant_node) {
 		c++;
 
 	}
+	*/
 
 	//console.log('testing distant_node', distant_node);
 
@@ -539,6 +541,10 @@ dt.prototype.test_distant_node = function(distant_node) {
 				var j = JSON.parse(decrypted);
 
 				if (j.type === 'distant_node_pong') {
+
+					// set the node_id as it may have originated from a node storing it as initial that has yet to connect
+					distant_node.node_id = j.node_id;
+
 					// calculate the rtt between this node and the server it is connected to
 					var rtt = Date.now() - j.ts;
 
@@ -555,6 +561,7 @@ dt.prototype.test_distant_node = function(distant_node) {
 
 						console.log('distant_node test success, avg rtt', this.dt_object.rtt_avg(distant_node.rtt_array));
 
+						/*
 						// remove any distant_node entries that have the same ip and port
 						// as the node_id may have changed
 						var c = this.dt_object.distant_nodes.length-1;
@@ -571,6 +578,7 @@ dt.prototype.test_distant_node = function(distant_node) {
 							}
 							c--;
 						}
+						*/
 
 					}
 
