@@ -216,10 +216,6 @@ var dt = function(config) {
 
 		});
 
-		//conn.write('hello\r\n');
-
-		//conn.pipe(conn);
-
 	}.bind({dt_object: this}));
 
 	this.server.on('error', function(err) {
@@ -468,7 +464,7 @@ dt.prototype.connect = function() {
 
 			primary_node.connected_as_primary = false;
 
-			console.log('node disconnected from server node', primary_node.ip, primary_node.port, primary_node.node_id);
+			console.log('primary client disconnected from server node', primary_node.ip, primary_node.port, primary_node.node_id);
 
 			// reconnect to the network
 			this.dt_object.connect();
@@ -477,7 +473,7 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('timeout', function() {
 
-			console.error('timeout connecting to node', primary_node.ip, primary_node.port, primary_node.node_id);
+			console.error('primary client timeout', primary_node.ip, primary_node.port, primary_node.node_id);
 
 			primary_node.connected_as_primary = false;
 
@@ -491,7 +487,7 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('error', function(err) {
 
-			console.error('error connecting to node', primary_node.ip, primary_node.port, this.dt_object.connect.node_id, err.toString());
+			console.error('primary client socket error', primary_node.ip, primary_node.port, this.dt_object.connect.node_id, err.toString());
 
 			primary_node.connected_as_primary = false;
 
@@ -1137,7 +1133,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		this.client_send({type: 'distant_node', ip: node_ip, port: j.listening_port, node_id: j.node_id});
 
 		if (updated === false) {
-			// add or the node to this.nodes
+			// add node to this.nodes
 			this.nodes.push({ip: node_ip, port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0});
 		}
 
