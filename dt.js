@@ -108,11 +108,11 @@ var dt = function(config) {
 
 	console.log('creating new dt node', this.port, this.node_id);
 
-	this.server = net.createServer((conn) => {
+	this.server = net.createServer(function(conn) {
 		// 'connection' listener.
 		// this is a new client
 
-		if (ipac.test_ip_allowed(this.ip_ac, conn.remoteAddress) === false) {
+		if (ipac.test_ip_allowed(this.dt_object.ip_ac, conn.remoteAddress) === false) {
 			// this IP address has been blocked by node-ip-ac
 			conn.end();
 			return;
@@ -190,9 +190,9 @@ var dt = function(config) {
 			// not finished
 			return;
 
-		}.bind({dt_object: this});
+		}.bind({dt_object: this.dt_object});
 
-		conn.on('data', (chunk) => {
+		conn.on('data', function(chunk) {
 
 			if (data.length === 0) {
 				// first chunk
@@ -229,7 +229,7 @@ var dt = function(config) {
 
 		});
 
-		conn.on('end', () => {
+		conn.on('end', function() {
 
 			console.log('client disconnected');
 
@@ -239,25 +239,25 @@ var dt = function(config) {
 
 		//conn.pipe(conn);
 
-	});
+	}.bind({dt_object: this}));
 
-	this.server.on('error', (err) => {
+	this.server.on('error', function(err) {
 		console.error(err);
 		process.exit(1);
 	});
 
-	this.server.listen(this.port, () => {
-		console.log('server bound', this.port);
+	this.server.listen(this.port, function() {
+		console.log('server bound', this.dt_object.port);
 
 		// connect to a node
-		this.connect();
+		this.dt_object.connect();
 
 		// start clean routine
-		this.clean();
+		this.dt_object.clean();
 
-		this.emitter.emit('started');
+		this.dt_object.emitter.emit('started');
 
-	});
+	}.bind({dt_object: this}));
 
 }
 
@@ -352,7 +352,7 @@ dt.prototype.connect = function() {
 		// ping the server
 		var ping;
 
-		this.dt_object.client = net.connect({port: primary_node.port, host: primary_node.ip, keepAlive: true}, () => {
+		this.dt_object.client = net.connect({port: primary_node.port, host: primary_node.ip, keepAlive: true}, function() {
 			// 'connect' listener.
 			console.log('primary client connected to', primary_node.ip, primary_node.port, primary_node.node_id);
 
@@ -403,7 +403,7 @@ dt.prototype.connect = function() {
 				c++;
 			}
 
-		});
+		}.bind({dt_object: this.dt_object}));
 
 		// set client timeout of the socket
 		this.dt_object.client.setTimeout(this.dt_object.timeout);
@@ -451,7 +451,7 @@ dt.prototype.connect = function() {
 
 		}.bind({dt_object: this.dt_object});
 
-		this.dt_object.client.on('data', (chunk) => {
+		this.dt_object.client.on('data', function(chunk) {
 
 			if (data.length === 0) {
 				// first chunk
@@ -486,9 +486,9 @@ dt.prototype.connect = function() {
 
 			}
 
-		});
+		}.bind({dt_object: this.dt_object}));
 
-		this.dt_object.client.on('end', () => {
+		this.dt_object.client.on('end', function() {
 
 			// stop pinging
 			clearInterval(ping);
@@ -500,9 +500,9 @@ dt.prototype.connect = function() {
 			// reconnect to the network
 			this.dt_object.connect();
 
-		});
+		}.bind({dt_object: this.dt_object}));
 
-		this.dt_object.client.on('timeout', () => {
+		this.dt_object.client.on('timeout', function() {
 
 			console.error('timeout connecting to node', primary_node.ip, primary_node.port, primary_node.node_id);
 
@@ -514,9 +514,9 @@ dt.prototype.connect = function() {
 			// reconnect to the network
 			this.dt_object.connect();
 
-		});
+		}.bind({dt_object: this.dt_object}));
 
-		this.dt_object.client.on('error', (err) => {
+		this.dt_object.client.on('error', function(err) {
 
 			console.error('error connecting to node', primary_node.ip, primary_node.port, this.dt_object.connect.node_id, err.toString());
 
@@ -528,7 +528,7 @@ dt.prototype.connect = function() {
 			// reconnect to the network
 			this.dt_object.connect();
 
-		});
+		}.bind({dt_object: this.dt_object}));
 
 	}.bind({dt_object: this}), 200);
 
@@ -755,7 +755,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	}.bind({dt_object: this});
 
-	client.on('data', (chunk) => {
+	client.on('data', function(chunk) {
 
 		if (data.length === 0) {
 			// first chunk
@@ -794,7 +794,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	});
 
-	client.on('end', () => {
+	client.on('end', function() {
 
 		// stop pinging
 		clearInterval(ping);
@@ -803,7 +803,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	});
 
-	client.on('timeout', () => {
+	client.on('timeout', function() {
 
 		console.error('timeout connecting to node in node test', node.ip, node.port, node.node_id);
 		node.test_status = 'failed';
@@ -811,7 +811,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	});
 
-	client.on('error', (err) => {
+	client.on('error', function(err) {
 
 		console.error('error connecting to node in node test', node.ip, node.port, node.node_id, err.toString());
 		node.test_status = 'failed';
