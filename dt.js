@@ -60,14 +60,21 @@ var dt = function(config) {
 		process.exit(1)
 	}
 
+	// configurable options
 	this.port = Number(config.port);
 	this.key = Buffer.from(config.key);
-	this.nodes = [];
 	this.timeout = Number(config.timeout);
 	this.ping_interval = Number(config.ping_interval);
+
+	// storage objects
+	this.nodes = [];
 	this.distant_nodes = [];
 	this.objects = [];
+
+	// advanced/non configurable options
 	this.max_test_failures = 5;
+	this.max_ping_count = 20;
+	this.clean_interval = 5000;
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -577,7 +584,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 			// send with this node's node_id
 			this.dt_object.client_send({type: 'distant_node_ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: node.rtt}, client);
 
-		}.bind({dt_object: this.dt_object}), 2000);
+		}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
 	}.bind({dt_object: this}));
 
@@ -635,14 +642,14 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 					node.rtt_array.push(rtt);
 
-					if (node.rtt_array.length > 20) {
-						// keep the latest 20 by removing the first
+					if (node.rtt_array.length > this.dt_object.max_ping_count) {
+						// keep the latest dt.max_ping_count by removing the first
 						node.rtt_array.shift();
 					}
 
 					recieved_pings++;
-					if (recieved_pings >= 20) {
-						// test success at 20 pings
+					if (recieved_pings >= this.dt_object.max_ping_count) {
+						// test success at dt.max_ping_count pings
 						client.end();
 						node.test_status = 'success';
 						node.test_failures = 0;
@@ -849,7 +856,7 @@ dt.prototype.clean = function() {
 		this.dt_object.server_send(this.dt_object.conn, {type: 'test', node_id: this.dt_object.node_id, test: s});
 		*/
 
-	}.bind({dt_object: this}), 5000);
+	}.bind({dt_object: this}), this.clean_interval);
 
 }
 
@@ -970,8 +977,8 @@ dt.prototype.valid_server_message = function(conn, j) {
 				this.nodes[c].connected_as_primary = true;
 
 				this.nodes[c].rtt_array.push(j.previous_rtt);
-				if (this.nodes[c].rtt_array.length > 20) {
-					// keep the latest 20 by removing the first
+				if (this.nodes[c].rtt_array.length > this.max_ping_count) {
+					// keep the latest dt.max_ping_count by removing the first
 					this.nodes[c].rtt_array.shift();
 				}
 
@@ -1132,8 +1139,8 @@ dt.prototype.valid_client_message = function(j) {
 		//console.log(rtt + 'ms RTT to server');
 
 		this.connect_node.rtt_array.push(rtt);
-		if (this.connect_node.rtt_array.length > 20) {
-			// keep the latest 20 by removing the first and oldest
+		if (this.connect_node.rtt_array.length > this.max_ping_count) {
+			// keep the latest dt.max_ping_count by removing the first and oldest
 			this.connect_node.rtt_array.shift();
 		}
 
