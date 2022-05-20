@@ -75,6 +75,10 @@ var dt = function(config) {
 	this.max_test_failures = 5;
 	this.max_ping_count = 20;
 	this.clean_interval = 5000;
+	// if there is a better node to use as the primary, wait this long before disconnecting the existing primary client
+	this.better_primary_switch_wait = 1000 * 60 * 20;
+	// a node with a latency lower than this * the primary node latency avg will cause a primary client reconnect
+	this.better_primary_latency_multiplier = .7;
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -270,8 +274,9 @@ dt.prototype.connect = function() {
 		// connect to a node
 		console.log('\ndt.connect() total nodes', this.dt_object.nodes.length);
 
-		// solve what node to connect to
-		var lowest_primary_connection_failures = 0;
+		// find the node with the lowest primary_connection_failures
+		// this ensures that the primary connection is to a stable node
+		var lowest_primary_connection_failures = -1;
 		this.dt_object.connect_node = {};
 
 		var c = 0;
@@ -295,15 +300,37 @@ dt.prototype.connect = function() {
 				//console.log('attempting connection to client because it is not connected as a client');
 			}
 
-			if (n.primary_connection_failures <= lowest_primary_connection_failures || Object.keys(this.dt_object.connect_node).length === 0) {
-				// finding the node with the lowest primary_connection_failures
-				// connect to it
+			// finding the node with the lowest primary_connection_failures
+			if (n.primary_connection_failures < lowest_primary_connection_failures || lowest_primary_connection_failures === -1) {
 				this.dt_object.connect_node = n;
 				lowest_primary_connection_failures = n.primary_connection_failures;
 			}
 
 			c++;
 
+		}
+
+		// connect_node has the lowest primary_connection_failures
+		// test the nodes that equal the primary_connection_failures count
+		// and choose the one with the lowest avg rtt
+		// this ensures that the primary connection is stable and has a low round trip time
+		var lowest_avg_rtt = -1;
+		var r = 0;
+		while (r < this.dt_object.nodes.length) {
+			var n = this.dt_object.nodes[r];
+
+			var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
+
+			if (isNaN(n_avg)) {
+				// skip nodes with no average rtt
+			} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
+				// skip nodes that have more primary_connection failures
+			} else if (n_avg < lowest_avg_rtt || lowest_avg_rtt === -1) {
+				// there is a node with better latency
+				this.dt_object.connect_node = n;
+				lowest_avg_rtt = n_avg;
+			}
+			r++;
 		}
 
 		if (Object.keys(this.dt_object.connect_node).length === 0) {
@@ -316,7 +343,7 @@ dt.prototype.connect = function() {
 			return;
 		}
 
-		console.log('node with lowest primary connection failures', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
+		console.log('best node for primary client connection', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id, 'primary_connection_failures: ' + this.dt_object.connect_node.primary_connection_failures, 'avg_rtt: ' + this.dt_object.rtt_avg(this.dt_object.connect_node.avg_rtt));
 
 		// ping the server
 		var ping;
@@ -779,13 +806,7 @@ dt.prototype.clean = function() {
 
 	setInterval(function() {
 
-		// needs connection selection routine
-		// based on long >5m intervals
-
-		console.log('\nsorting hosts by latency');
-
-		// test latency and expiration of nodes and distant nodes
-		// remember that the node_id changes each time the node is restarted
+		// test latency of distant nodes and nodes
 
 		console.log('\tdistant nodes');
 		var c = 0;
@@ -801,7 +822,7 @@ dt.prototype.clean = function() {
 			} else if (n.test_status === 'failed') {
 
 				if (n.test_failures <= this.dt_object.max_test_failures) {
-					// retest
+					// retest distant node
 					this.dt_object.test_node(n, true);
 				}
 
@@ -809,6 +830,8 @@ dt.prototype.clean = function() {
 
 			c++;
 		}
+
+		var primary_node = null;
 
 		console.log('\tnodes');
 		var l = 0;
@@ -827,33 +850,75 @@ dt.prototype.clean = function() {
 				} else if (n.test_status === 'failed') {
 
 					if (n.test_failures <= 5) {
-						// retest
+						// retest node
 						this.dt_object.test_node(n);
 					}
 
 				}
 
+			} else {
+				// reference to use later
+				primary_node = n;
 			}
 
 			l++;
 		}
 
-		// to ensure direct connectivity to the node with the lowest latency
-		// examine node rtt times and reconnect if
-		//	primary_connection_start of node connected_as_primary is > 20 minutes ago
-		//	avg rtt is .7 of node connected_as_primary
-
 		// reset test_status === success to test_status: pending every 10m + random(5m)
 		// reset test_status === failed and test_failures >= dt.max_test_failures to test_status: pending every 10m + random(5m)
 
-		// send a long object to test
-		/*
-		var s = '';
-		while (l < 50000) {
-			s += 'a';
-			l++;
+		// dt.connect() automatically reconnects if not connected
+		if (primary_node !== null) {
+
+			// primary node is connected
+
+			// to ensure direct connectivity to the node with the lowest latency
+			// examine node rtt times and disconnect to force a new connection to the node with the lowest latency if
+			//	primary_connection_start of primary_node is > dt.better_primary_switch_wait
+			//	a nodes avg rtt is .7 (dt.better_primary_latency_multiplier) or less of primary node
+
+			if (Date.now() - primary_node.primary_connection_start > this.dt_object.better_primary_switch_wait) {
+
+				var dc = false;
+				var r = 0;
+				while (r < this.dt_object.nodes.length) {
+					var n = this.dt_object.nodes[r];
+
+					var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
+					var pn_avg = this.dt_object.rtt_avg(primary_node.avg_rtt);
+
+					if (isNaN(n_avg) || isNaN(pn_avg)) {
+						// skip nodes with no average rtt
+					} else if (n_avg * this.dt_object.better_primary_latency_multiplier > pn_avg) {
+						// there is a node with better latency
+						dc = true;
+						break;
+					}
+					r++;
+				}
+
+				if (dc === true) {
+					console.log('ending primary client connection, there is a better connection available from another node');
+					// the primary client should reconnect, there is a better connection/link to another node
+					primary_node.conn.end();
+				}
+
+			}
+
 		}
-		this.dt_object.server_send(this.dt_object.conn, {type: 'test', node_id: this.dt_object.node_id, test: s});
+
+		/*
+		if (primary_node !== null) {
+
+			// send a long object
+			var s = '';
+			while (l < 50000) {
+				s += 'a';
+				l++;
+			}
+			this.dt_object.server_send(primary_node.conn, {type: 'test', node_id: this.dt_object.node_id, test: s});
+
+		}
 		*/
 
 	}.bind({dt_object: this}), this.clean_interval);
