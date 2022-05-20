@@ -586,7 +586,8 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 			while (l < this.distant_nodes.length) {
 				var r = this.distant_nodes[l];
 				if (node.node_id === r.node_id) {
-					this.distant_nodes.splice(l, 1);
+					// flag this node as remove so it will be removed in the clean routine
+					node.remove = true;
 					break;
 				}
 				l++;
@@ -696,19 +697,25 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 							while (c >= 0) {
 								var n = this.dt_object.distant_nodes[c];
 								if (n.node_id === node.node_id) {
-									// this is the same entry
+									// this is the same node
+									// move this node to nodes so it will be connected to
+									// FIX make sure it does not already exist in nodes
+									this.dt_object.nodes.push(JSON.parse(JSON.stringify(n)));
+
+									// flag this node as remove so it will be removed in the clean routine
+									n.remove = true;
+
 								} else {
 									if (n.ip === node.ip && n.port === node.port) {
 										// this is another entry with the same ip and port but a different node_id
 										// remove it because only one node can run on a single IP and port
-										this.dt_object.distant_nodes.splice(c, 1);
+
+										// flag this node as remove so it will be removed in the clean routine
+										n.remove = true;
 									}
 								}
 								c--;
 							}
-
-							// FIX
-							// move this node to nodes so it will be connected to
 
 						}
 
@@ -816,10 +823,21 @@ dt.prototype.clean = function() {
 
 		// test latency of distant nodes and nodes
 
+		// FIX nodes can be removed during test_node() and not found here
+
 		console.log('\tdistant nodes');
 		var c = this.dt_object.distant_nodes.length-1;
 		while (c >= 0) {
+
 			var n = this.dt_object.distant_nodes[c];
+
+			if (n.remove === true) {
+				// node flagged for removal
+				this.dt_object.distant_nodes.splice(c, 1);
+				c--;
+				continue;
+			}
+
 			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
 			if (n.last_test_success !== undefined) {
@@ -866,7 +884,16 @@ dt.prototype.clean = function() {
 		console.log('\tnodes');
 		var l = this.dt_object.nodes.length-1;
 		while (l >= 0) {
+
 			var n = this.dt_object.nodes[l];
+
+			if (n.remove === true) {
+				// node flagged for removal
+				this.dt_object.nodes.splice(l, 1);
+				l--;
+				continue;
+			}
+
 			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
 			// initial nodes are not subject to unreachable
@@ -1153,7 +1180,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			if (this.distant_nodes[l].node_id === j.node_id) {
 				exists = true;
-				this.distant_nodes[l].ts = Date.now();
+				this.distant_nodes[l].last_known_as_distant = Date.now();
 				break;
 			}
 
@@ -1166,7 +1193,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0});
 
 			// the distant node may need to know of this node
 			// send a distant_node message of this node to the client
@@ -1287,7 +1314,7 @@ dt.prototype.valid_client_message = function(j) {
 
 			if (this.distant_nodes[l].node_id === j.node_id) {
 				exists = true;
-				this.distant_nodes[l].ts = Date.now();
+				this.distant_nodes[l].last_known_as_distant = Date.now();
 				break;
 			}
 
@@ -1300,7 +1327,7 @@ dt.prototype.valid_client_message = function(j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, ts: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0});
 
 		}
 
