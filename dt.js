@@ -1158,22 +1158,24 @@ dt.prototype.valid_server_message = function(conn, j) {
 		// add the node_id to the conn object
 		conn.node_id = j.node_id;
 
+		var node_ip = this.clean_remote_address(conn.remoteAddress);
+
 		var updated = false;
 		var c = 0;
 		while (c < this.nodes.length) {
 
 			var n = this.nodes[c];
 
-			if (n.node_id === j.node_id || (n.ip === j.ip && n.port === j.listening_port)) {
+			if (n.node_id === j.node_id || (n.ip === node_ip && n.port === j.listening_port)) {
 				// update the node
-				n = {ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: []};
+				n = {ip: node_ip, port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: []};
 				updated = true;
 			} else if (n.type === 'client') {
 				if (n.conn) {
 					// a connection object means the node is connected
 					// tell this client node that a client connected
 					//console.log('sending distant_node to a client');
-					this.server_send(n.conn, {type: 'distant_node', ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, node_id: j.node_id});
+					this.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: j.listening_port, node_id: j.node_id});
 				}
 			}
 			c++;
@@ -1181,11 +1183,11 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		// tell the server that a distant_node that is a client connected 
 		//console.log('sending distant_node to the server');
-		this.client_send({type: 'distant_node', ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, node_id: j.node_id});
+		this.client_send({type: 'distant_node', ip: node_ip, port: j.listening_port, node_id: j.node_id});
 
 		if (updated === false) {
 			// add or the node to this.nodes
-			this.nodes.push({ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0});
+			this.nodes.push({ip: node_ip, port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0});
 		}
 
 	} else if (j.type === 'distant_node') {
