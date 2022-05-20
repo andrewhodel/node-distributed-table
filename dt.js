@@ -79,6 +79,8 @@ var dt = function(config) {
 	this.better_primary_switch_wait = 1000 * 60 * 20;
 	// a node with a latency lower than this * the primary node latency avg will cause a primary client reconnect
 	this.better_primary_latency_multiplier = .7;
+	// wait this long before purging an unreachable node
+	this.purge_node_unreachable_wait = 1000 * 60 * 60;
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -680,6 +682,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 						client.end();
 						node.test_status = 'success';
 						node.test_failures = 0;
+						node.last_test_success = Date.now();
 
 						console.log('node test success, avg rtt', this.dt_object.rtt_avg(node.rtt_array));
 
@@ -814,6 +817,17 @@ dt.prototype.clean = function() {
 			var n = this.dt_object.distant_nodes[c];
 			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
+			if (n.last_test_success !== undefined) {
+
+				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
+				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
+					this.dt_object.distant_nodes.splice(c, 1);
+					c++;
+					continue;
+				}
+
+			}
+
 			if (n.test_status === 'pending') {
 
 				// start a latency test on this distant node
@@ -838,6 +852,19 @@ dt.prototype.clean = function() {
 		while (l < this.dt_object.nodes.length) {
 			var n = this.dt_object.nodes[l];
 			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
+
+			// initial nodes are not subject to unreachable
+			// there address is written into the initial list before node launch
+			if (n.last_test_success !== undefined && n.type != 'initial') {
+
+				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
+				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
+					this.dt_object.nodes.splice(l, 1);
+					l++;
+					continue;
+				}
+
+			}
 
 			if (n.connected_as_primary === false) {
 				// this is not the node that is connected via the primary client
