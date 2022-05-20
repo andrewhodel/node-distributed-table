@@ -1224,7 +1224,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false});
 
 			// the distant node may need to know of this node
 			// send a distant_node message of this node to the client
@@ -1374,7 +1374,7 @@ dt.prototype.valid_client_message = function(j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false});
 
 		}
 
