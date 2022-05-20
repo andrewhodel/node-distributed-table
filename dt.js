@@ -1190,11 +1190,28 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		var exists = false;
 		var l = 0;
+
 		while (l < this.distant_nodes.length) {
 
+			// distant nodes always have a node_id
 			if (this.distant_nodes[l].node_id === j.node_id) {
+				// node exists in distant nodes
 				exists = true;
 				this.distant_nodes[l].last_known_as_distant = Date.now();
+				break;
+			}
+
+			l++;
+
+		}
+
+		l = 0;
+		while (l < this.nodes.length) {
+
+			// test nodes by ip and port
+			if (this.nodes[l].ip === j.ip && this.nodes[l].port === j.port) {
+				// node exists in nodes
+				exists = true;
 				break;
 			}
 
@@ -1324,11 +1341,27 @@ dt.prototype.valid_client_message = function(j) {
 
 		var exists = false;
 		var l = 0;
+
 		while (l < this.distant_nodes.length) {
 
+			// distant nodes always have a node_id
 			if (this.distant_nodes[l].node_id === j.node_id) {
 				exists = true;
 				this.distant_nodes[l].last_known_as_distant = Date.now();
+				break;
+			}
+
+			l++;
+
+		}
+
+		l = 0;
+		while (l < this.nodes.length) {
+
+			// test nodes by ip and port
+			if (this.nodes[l].ip === j.ip && this.nodes[l].port === j.port) {
+				// node exists in nodes
+				exists = true;
 				break;
 			}
 
