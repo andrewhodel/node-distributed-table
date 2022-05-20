@@ -281,7 +281,7 @@ dt.prototype.connect = function() {
 		// find the node with the lowest primary_connection_failures
 		// this ensures that the primary connection is to a stable node
 		var lowest_primary_connection_failures = -1;
-		this.dt_object.connect_node = {};
+		var primary_node = {};
 
 		var c = 0;
 		while (c < this.dt_object.nodes.length) {
@@ -306,7 +306,7 @@ dt.prototype.connect = function() {
 
 			// finding the node with the lowest primary_connection_failures
 			if (n.primary_connection_failures < lowest_primary_connection_failures || lowest_primary_connection_failures === -1) {
-				this.dt_object.connect_node = n;
+				primary_node = n;
 				lowest_primary_connection_failures = n.primary_connection_failures;
 			}
 
@@ -331,13 +331,13 @@ dt.prototype.connect = function() {
 				// skip nodes that have more primary_connection failures
 			} else if (n_avg < lowest_avg_rtt || lowest_avg_rtt === -1) {
 				// there is a node with better latency
-				this.dt_object.connect_node = n;
+				primary_node = n;
 				lowest_avg_rtt = n_avg;
 			}
 			r++;
 		}
 
-		if (Object.keys(this.dt_object.connect_node).length === 0) {
+		if (Object.keys(primary_node).length === 0) {
 			// this node has no nodes to connect to
 			// it should stay on to allow nodes to connect to it
 			console.log('no nodes ready for connection');
@@ -347,17 +347,17 @@ dt.prototype.connect = function() {
 			return;
 		}
 
-		console.log('best node for primary client connection', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id, 'primary_connection_failures: ' + this.dt_object.connect_node.primary_connection_failures, 'avg_rtt: ' + this.dt_object.rtt_avg(this.dt_object.connect_node.avg_rtt));
+		console.log('best node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'avg_rtt: ' + this.dt_object.rtt_avg(primary_node.avg_rtt));
 
 		// ping the server
 		var ping;
 
-		this.dt_object.client = net.connect({port: this.dt_object.connect_node.port, host: this.dt_object.connect_node.ip, keepAlive: true}, () => {
+		this.dt_object.client = net.connect({port: primary_node.port, host: primary_node.ip, keepAlive: true}, () => {
 			// 'connect' listener.
-			console.log('primary client connected to', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
+			console.log('primary client connected to', primary_node.ip, primary_node.port, primary_node.node_id);
 
 			// set the start time of this connection
-			this.dt_object.connect_node.primary_connection_start = Date.now();
+			primary_node.primary_connection_start = Date.now();
 
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
@@ -376,7 +376,7 @@ dt.prototype.connect = function() {
 			// and send the previous rtt
 			ping = setInterval(function() {
 
-				this.dt_object.client_send({type: 'ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: this.dt_object.connect_node.rtt});
+				this.dt_object.client_send({type: 'ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: primary_node.rtt});
 
 			}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
@@ -437,7 +437,7 @@ dt.prototype.connect = function() {
 
 				try {
 					// decrypted is a valid message
-					this.dt_object.valid_client_message(JSON.parse(decrypted));
+					this.dt_object.valid_primary_client_message(primary_node, JSON.parse(decrypted));
 				} catch (err) {
 					console.error('error in primary client authorization to server', err);
 				}
@@ -493,9 +493,9 @@ dt.prototype.connect = function() {
 			// stop pinging
 			clearInterval(ping);
 
-			this.dt_object.connect_node.connected_as_primary = false;
+			primary_node.connected_as_primary = false;
 
-			console.log('node disconnected from server node', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
+			console.log('node disconnected from server node', primary_node.ip, primary_node.port, primary_node.node_id);
 
 			// reconnect to the network
 			this.dt_object.connect();
@@ -504,12 +504,12 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('timeout', () => {
 
-			console.error('timeout connecting to node', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect_node.node_id);
+			console.error('timeout connecting to node', primary_node.ip, primary_node.port, primary_node.node_id);
 
-			this.dt_object.connect_node.connected_as_primary = false;
+			primary_node.connected_as_primary = false;
 
 			// a connection timeout is a failure
-			this.dt_object.connect_node.primary_connection_failures++;
+			primary_node.primary_connection_failures++;
 
 			// reconnect to the network
 			this.dt_object.connect();
@@ -518,12 +518,12 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('error', (err) => {
 
-			console.error('error connecting to node', this.dt_object.connect_node.ip, this.dt_object.connect_node.port, this.dt_object.connect.node_id, err.toString());
+			console.error('error connecting to node', primary_node.ip, primary_node.port, this.dt_object.connect.node_id, err.toString());
 
-			this.dt_object.connect_node.connected_as_primary = false;
+			primary_node.connected_as_primary = false;
 
 			// a connection error is a failure
-			this.dt_object.connect_node.primary_connection_failures++;
+			primary_node.primary_connection_failures++;
 
 			// reconnect to the network
 			this.dt_object.connect();
@@ -1133,11 +1133,9 @@ dt.prototype.valid_server_message = function(conn, j) {
 		var c = 0;
 		while (c < this.nodes.length) {
 			if (this.nodes[c].node_id === j.node_id) {
+				// FIX
 				// set primary client node values
 				this.nodes[c].rtt = j.previous_rtt;
-				this.nodes[c].last_primary_connection = Date.now();
-				this.nodes[c].connected_as_primary = true;
-				this.nodes[c].last_test_success = Date.now();
 
 				this.nodes[c].rtt_array.push(j.previous_rtt);
 				if (this.nodes[c].rtt_array.length > this.max_ping_count) {
@@ -1295,40 +1293,50 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 }
 
-dt.prototype.valid_client_message = function(j) {
+dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 	// j is a valid message object
-	// that was sent to the client
+	// that was sent to the primary client
 	//console.log('valid client message', j);
 
 	if (j.type === 'is_self') {
 		// the client connected to itself
 		// this is normal at the start of the process
 		// flag the is_self entry in nodes so it won't do try again
-		this.connect_node.is_self = true;
+		primary_node.is_self = true;
 
 		// disconnect
 		// this will start a reconnect, and another node will be attempted
 		this.client.end();
 
 	} else if (j.type === 'pong') {
+
+		// update the last connection date of the primary connection
+		primary_node.last_primary_connection = Date.now();
+
+		// flag this node as connected_as_primary
+		primary_node.connected_as_primary = true;
+
+		// prevent the primary node from being tested
+		primary_node.last_test_success = Date.now();
+
 		// calculate the rtt between this node and the server it is connected to
 		var rtt = Date.now() - j.ts;
 
-		this.connect_node.rtt = rtt;
+		primary_node.rtt = rtt;
 		//console.log(rtt + 'ms RTT to server');
 
-		this.connect_node.rtt_array.push(rtt);
-		if (this.connect_node.rtt_array.length > this.max_ping_count) {
+		primary_node.rtt_array.push(rtt);
+		if (primary_node.rtt_array.length > this.max_ping_count) {
 			// keep the latest dt.max_ping_count by removing the first and oldest
-			this.connect_node.rtt_array.shift();
+			primary_node.rtt_array.shift();
 		}
 
 		// update the last_primary_connection date
-		this.connect_node.last_primary_connection = Date.now();
+		primary_node.last_primary_connection = Date.now();
 
 		// update the server's node_id
-		this.connect_node.node_id = j.node_id;
+		primary_node.node_id = j.node_id;
 
 	} else if (j.type === 'distant_node') {
 		// a client node sent a distant node
