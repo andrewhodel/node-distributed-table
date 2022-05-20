@@ -265,8 +265,11 @@ dt.prototype.connect = function() {
 
 			var n = this.dt_object.nodes[c];
 
+			console.log('test primary node against primary_connection_failures', n.node_id, n.ip, n.port);
+
 			if (n.is_self === true) {
 				// do not attempt connection to self
+				console.log('\tskipped as self');
 				c++;
 				continue;
 			}
@@ -275,16 +278,18 @@ dt.prototype.connect = function() {
 				if (n.conn) {
 					// do not attempt connection to client nodes that are already connected
 					// a connection object means the node is connected
+					console.log('\tskipped as connected client');
 					c++;
 					continue;
 				}
-				//console.log('attempting connection to client because it is not connected as a client');
 			}
 
 			// finding the node with the lowest primary_connection_failures
 			if (n.primary_connection_failures < lowest_primary_connection_failures || lowest_primary_connection_failures === -1) {
 				primary_node = n;
 				lowest_primary_connection_failures = n.primary_connection_failures;
+
+				console.log('better primary node selection against primary_connection_failures');
 			}
 
 			c++;
@@ -302,14 +307,20 @@ dt.prototype.connect = function() {
 
 			var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
 
+			console.log('test primary node against avg_rtt', n.node_id, n.ip, n.port);
+
 			if (isNaN(n_avg)) {
 				// skip nodes with no average rtt
+				console.log('\tskipped with no avg_rtt');
 			} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
 				// skip nodes that have more primary_connection failures
+				console.log('\tskipped per more primary_connection_failures than lowest');
 			} else if (n_avg < lowest_avg_rtt || lowest_avg_rtt === -1) {
 				// there is a node with better latency
 				primary_node = n;
 				lowest_avg_rtt = n_avg;
+
+				console.log('better primary node selection against avg_rtt', n.node_id);
 			}
 			r++;
 		}
@@ -328,6 +339,10 @@ dt.prototype.connect = function() {
 
 		// ping the server
 		var ping;
+
+		if (this.dt_object.client !== undefined) {
+			this.dt_object.client.destroy();
+		}
 
 		this.dt_object.client = net.connect({port: primary_node.port, host: primary_node.ip, keepAlive: true}, function() {
 			// 'connect' listener.
@@ -618,6 +633,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 					node.node_id = j.node_id;
 					node.is_self = true;
 					node.test_status = 'is_self'
+					console.log('ending test client connection to self');
 					client.end();
 
 				} if (j.type === 'test_pong') {
@@ -783,6 +799,7 @@ dt.prototype.clean = function() {
 
 	setInterval(function() {
 
+		console.log('node id: ' + this.dt_object.node_id, this.dt_object.ip, this.dt_object.port);
 		console.log('\nserver has ' + this.dt_object.server._connections + ' connections');
 		console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
 
@@ -1261,6 +1278,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 		// disconnect
 		// this will start a reconnect, and another node will be attempted
+		console.log('ending primary client connection to self');
 		this.client.end();
 
 	} else if (j.type === 'pong') {
