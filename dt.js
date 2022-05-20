@@ -705,6 +705,9 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 								c--;
 							}
 
+							// FIX
+							// move this node to nodes so it will be connected to
+
 						}
 
 					}
@@ -812,8 +815,8 @@ dt.prototype.clean = function() {
 		// test latency of distant nodes and nodes
 
 		console.log('\tdistant nodes');
-		var c = 0;
-		while (c < this.dt_object.distant_nodes.length) {
+		var c = this.dt_object.distant_nodes.length-1;
+		while (c >= 0) {
 			var n = this.dt_object.distant_nodes[c];
 			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
@@ -822,7 +825,7 @@ dt.prototype.clean = function() {
 				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
 				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
 					this.dt_object.distant_nodes.splice(c, 1);
-					c++;
+					c--;
 					continue;
 				}
 
@@ -842,14 +845,14 @@ dt.prototype.clean = function() {
 
 			}
 
-			c++;
+			c--;
 		}
 
 		var primary_node = null;
 
 		console.log('\tnodes');
-		var l = 0;
-		while (l < this.dt_object.nodes.length) {
+		var l = this.dt_object.nodes.length-1;
+		while (l >= 0) {
 			var n = this.dt_object.nodes[l];
 			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
@@ -860,7 +863,7 @@ dt.prototype.clean = function() {
 				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
 				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
 					this.dt_object.nodes.splice(l, 1);
-					l++;
+					l--;
 					continue;
 				}
 
@@ -888,9 +891,10 @@ dt.prototype.clean = function() {
 				primary_node = n;
 			}
 
-			l++;
+			l--;
 		}
 
+		// FIX
 		// reset test_status === success to test_status: pending every 10m + random(5m)
 		// reset test_status === failed and test_failures >= dt.max_test_failures to test_status: pending every 10m + random(5m)
 
