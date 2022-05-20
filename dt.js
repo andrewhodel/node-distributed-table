@@ -586,7 +586,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 			while (l < this.distant_nodes.length) {
 				var r = this.distant_nodes[l];
 				if (node.node_id === r.node_id) {
-					// flag this node as remove so it will be removed in the clean routine
+					// flag this node with remove so it will be removed in the clean routine
 					node.remove = true;
 					break;
 				}
@@ -699,10 +699,26 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 								if (n.node_id === node.node_id) {
 									// this is the same node
 									// move this node to nodes so it will be connected to
-									// FIX make sure it does not already exist in nodes
-									this.dt_object.nodes.push(JSON.parse(JSON.stringify(n)));
 
-									// flag this node as remove so it will be removed in the clean routine
+									// make sure it does not already exist in nodes by ip:port
+									var exists = false;
+									var l = 0;
+									while (l < this.dt_object.nodes.length) {
+										var nn = this.dt_object.nodes[l];
+										if (nn.ip === n.ip && nn.port === n.port) {
+											// this IP and port already exist in nodes
+											exists = true;
+											break;
+										}
+										l++;
+									}
+
+									if (exists === false) {
+										// add this distant node to nodes
+										this.dt_object.nodes.push(JSON.parse(JSON.stringify(n)));
+									}
+
+									// flag this distant node with remove so it will be removed in the clean routine
 									n.remove = true;
 
 								} else {
@@ -710,7 +726,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 										// this is another entry with the same ip and port but a different node_id
 										// remove it because only one node can run on a single IP and port
 
-										// flag this node as remove so it will be removed in the clean routine
+										// flag this node with remove so it will be removed in the clean routine
 										n.remove = true;
 									}
 								}
@@ -822,8 +838,6 @@ dt.prototype.clean = function() {
 	setInterval(function() {
 
 		// test latency of distant nodes and nodes
-
-		// FIX nodes can be removed during test_node() and not found here
 
 		console.log('\tdistant nodes');
 		var c = this.dt_object.distant_nodes.length-1;
