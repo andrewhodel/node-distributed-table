@@ -837,6 +837,9 @@ dt.prototype.clean = function() {
 
 	setInterval(function() {
 
+		console.log('\nserver has ' + this.dt_object.server._connections + ' connections');
+		console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
+
 		// test latency of distant nodes and nodes
 
 		console.log('\tdistant nodes');
@@ -1180,7 +1183,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		if (updated === false) {
 			// add or the node to this.nodes
-			this.nodes.push({ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0})
+			this.nodes.push({ip: this.clean_remote_address(conn.remoteAddress), port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0});
 		}
 
 	} else if (j.type === 'distant_node') {
