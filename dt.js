@@ -129,32 +129,18 @@ var dt = function(config) {
 
 		var test_all_data = function() {
 
-			//console.log('test_all_data()', data_len, data.length);
+			//console.log('test_all_data()', data_len, data.length, data.toString());
 			if (data_len <= data.length) {
 
 				// decrypt the data_len
 				var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
 				//console.log('decrypted', decrypted.length, decrypted.toString());
 
-				if (data.length > data_len) {
-
-					// there are multiple messages
-					data_len = data.readUInt32BE(0);
-					data = data.subarray(4, data.length);
-
-					// continue parsing
-					test_all_data();
-
-				} else {
-					// reset data and data_len
-					data = Buffer.alloc(0);
-					data_len = 0;
-				}
-
 				try {
 
 					// decrypted is a valid message
 					var vm = JSON.parse(decrypted);
+
 					this.dt_object.valid_server_message(conn, vm);
 
 					// type open is the first message
@@ -181,20 +167,26 @@ var dt = function(config) {
 					// this is an invalid connection
 					ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
 					conn.end();
+					return;
 				}
+
+				// reset data
+				data = data.subarray(0, data_len);
+				// reset data_len
+				data_len = 0;
 
 				return;
 
 			}
 
-			// not finished
+			// there was not enough data
 			return;
 
 		}.bind({dt_object: this.dt_object});
 
 		conn.on('data', function(chunk) {
 
-			if (data.length === 0) {
+			if (data_len === 0) {
 				// first chunk
 
 				// read length
@@ -207,23 +199,12 @@ var dt = function(config) {
 
 				test_all_data();
 
-			} else if (data_len > data.length) {
+			} else {
 
 				// continue to read through data_len
 				data = Buffer.concat([data, chunk]);
 
 				test_all_data();
-
-			} else if (data_len === data.length) {
-
-				test_all_data();
-
-			} else {
-
-				// disconnect/reconnect
-				// data was manipulated or lost in transit
-				console.error('server data recieve error', chunk.toString(), data.toString());
-				conn.end();
 
 			}
 
@@ -347,7 +328,7 @@ dt.prototype.connect = function() {
 			return;
 		}
 
-		console.log('best node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'avg_rtt: ' + this.dt_object.rtt_avg(primary_node.avg_rtt));
+		console.log('\n\n\n\n\n\n\nbest node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'avg_rtt: ' + this.dt_object.rtt_avg(primary_node.avg_rtt));
 
 		// ping the server
 		var ping;
@@ -413,47 +394,50 @@ dt.prototype.connect = function() {
 
 		var test_all_data = function() {
 
-			//console.log('test_all_data()', data_len, data.length);
+			//console.log('test_all_data()', data_len, data.length, data.toString());
 			if (data_len <= data.length) {
 
 				// decrypt the data_len
 				var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
 				//console.log('decrypted', decrypted.length, decrypted.toString());
 
-				if (data.length > data_len) {
-
-					// there are multiple messages
-					data_len = data.readUInt32BE(0);
-					data = data.subarray(4, data.length);
-
-					// continue parsing
-					test_all_data();
-
-				} else {
-					// reset data and data_len
-					data = Buffer.alloc(0);
-					data_len = 0;
-				}
-
 				try {
+
 					// decrypted is a valid message
+					var vm = JSON.parse(decrypted);
+
+					// type open is the first message
+					if (vm.type === 'open') {
+
+						// this is an authorized connection
+						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
+
+					}
+
 					this.dt_object.valid_primary_client_message(primary_node, JSON.parse(decrypted));
+
 				} catch (err) {
 					console.error('error in primary client authorization to server', err);
+					return;
 				}
+
+				// reset data
+				data = data.subarray(0, data_len);
+				// reset data_len
+				data_len = 0;
 
 				return;
 
 			}
 
-			// not finished
+			// there was not enough data
 			return;
 
 		}.bind({dt_object: this.dt_object});
 
 		this.dt_object.client.on('data', function(chunk) {
 
-			if (data.length === 0) {
+			if (data_len === 0) {
 				// first chunk
 
 				// read length
@@ -466,27 +450,16 @@ dt.prototype.connect = function() {
 
 				test_all_data();
 
-			} else if (data_len > data.length) {
+			} else {
 
 				// continue to read through data_len
 				data = Buffer.concat([data, chunk]);
 
 				test_all_data();
 
-			} else if (data_len === data.length) {
-
-				test_all_data();
-
-			} else {
-
-				// disconnect/reconnect
-				// data was manipulated or lost in transit
-				console.error('client data recieve error', chunk.toString(), data.toString());
-				this.dt_object.client.end();
-
 			}
 
-		}.bind({dt_object: this.dt_object}));
+		});
 
 		this.dt_object.client.on('end', function() {
 
@@ -628,27 +601,17 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	var test_all_data = function() {
 
-		//console.log('test_all_data()', data_len, data.length);
+		//console.log('test_all_data()', data_len, data.length, data.toString());
 		if (data_len <= data.length) {
 
 			// decrypt the data_len
 			var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
 			//console.log('decrypted', decrypted.length, decrypted.toString());
 
-			if (data.length > data_len) {
-
-				// there are multiple messages
-				data_len = data.readUInt32BE(0);
-				data = data.subarray(4, data.length);
-
-				// continue parsing
-				test_all_data();
-
-			} else {
-				// reset data and data_len
-				data = Buffer.alloc(0);
-				data_len = 0;
-			}
+			// reset data
+			data = data.subarray(0, data_len);
+			// reset data_len
+			data_len = 0;
 
 			try {
 				// decrypted is a valid message
@@ -750,14 +713,14 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 		}
 
-		// not finished
+		// there was not enough data
 		return;
 
 	}.bind({dt_object: this});
 
 	client.on('data', function(chunk) {
 
-		if (data.length === 0) {
+		if (data_len === 0) {
 			// first chunk
 
 			// read length
@@ -770,25 +733,12 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 			test_all_data();
 
-		} else if (data_len > data.length) {
+		} else {
 
 			// continue to read through data_len
 			data = Buffer.concat([data, chunk]);
 
 			test_all_data();
-
-		} else if (data_len === data.length) {
-
-			test_all_data();
-
-		} else {
-
-			// disconnect/reconnect
-			// data was manipulated or lost in transit
-			console.error('data recieve error in node test', chunk.toString(), data.toString());
-			client.end();
-			node.test_status = 'failed';
-			node.test_failures++;
 
 		}
 
@@ -1127,6 +1077,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		// respond with test_pong
 		this.server_send(conn, {type: 'test_pong', node_id: this.node_id, ts: j.ts});
 	} else if (j.type === 'ping') {
+
 		// respond with pong
 		this.server_send(conn, {type: 'pong', node_id: this.node_id, ts: j.ts});
 
@@ -1304,7 +1255,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 	// j is a valid message object
 	// that was sent to the primary client
-	//console.log('valid client message', j);
+	//console.log('valid primary client message', j);
 
 	if (j.type === 'is_self') {
 		// the client connected to itself
