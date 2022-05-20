@@ -946,7 +946,7 @@ dt.prototype.clean = function() {
 				if (dc === true) {
 					console.log('ending primary client connection, there is a better connection available from another node');
 					// the primary client should reconnect, there is a better connection/link to another node
-					primary_node.conn.end();
+					this.dt_object.client.end();
 				}
 
 			}
