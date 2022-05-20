@@ -841,6 +841,9 @@ dt.prototype.clean = function() {
 				if (n.test_failures <= this.dt_object.max_test_failures) {
 					// retest distant node
 					this.dt_object.test_node(n, true);
+				} else {
+					// if the node has failed this many times, remove it
+					this.dt_object.distant_nodes.splice(c, 1);
 				}
 
 			}
@@ -859,7 +862,7 @@ dt.prototype.clean = function() {
 			// initial nodes are not subject to unreachable
 			// there address is written into the initial list before node launch
 			// the node that is connected with the primary client is also not subject to unreachable
-			if (n.last_test_success !== undefined && n.type != 'initial' && n.connected_as_primary !== true) {
+			if (n.last_test_success !== undefined && n.type !== 'initial' && n.connected_as_primary !== true) {
 
 				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
 				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
@@ -883,6 +886,13 @@ dt.prototype.clean = function() {
 					if (n.test_failures <= 5) {
 						// retest node
 						this.dt_object.test_node(n);
+					} else if (n.type !== 'initial') {
+						// if the node has failed this many times, remove it
+						// initial nodes always stay
+						this.dt_object.nodes.splice(l, 1);
+					} else if (n.type === 'initial') {
+						// reset initial nodes test_status so they are available in the connection routine when reachable
+						n.test_status = 'pending';
 					}
 
 				}
@@ -897,7 +907,7 @@ dt.prototype.clean = function() {
 
 		// FIX
 		// reset test_status === success to test_status: pending every 10m + random(5m)
-		// reset test_status === failed and test_failures >= dt.max_test_failures to test_status: pending every 10m + random(5m)
+		// to maintain an up to date test
 
 		// dt.connect() automatically reconnects if not connected
 		if (primary_node !== null) {
