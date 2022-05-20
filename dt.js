@@ -858,7 +858,8 @@ dt.prototype.clean = function() {
 
 			// initial nodes are not subject to unreachable
 			// there address is written into the initial list before node launch
-			if (n.last_test_success !== undefined && n.type != 'initial') {
+			// the node that is connected with the primary client is also not subject to unreachable
+			if (n.last_test_success !== undefined && n.type != 'initial' && n.connected_as_primary !== true) {
 
 				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
 				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
@@ -1071,6 +1072,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 				this.nodes[c].rtt = j.previous_rtt;
 				this.nodes[c].last_primary_connection = Date.now();
 				this.nodes[c].connected_as_primary = true;
+				this.nodes[c].last_test_success = Date.now();
 
 				this.nodes[c].rtt_array.push(j.previous_rtt);
 				if (this.nodes[c].rtt_array.length > this.max_ping_count) {
