@@ -614,7 +614,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		ping = setInterval(function() {
 
 			// send with this node's node_id
-			this.dt_object.client_send({type: 'distant_node_ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: node.rtt}, client);
+			this.dt_object.client_send({type: 'test_ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: node.rtt}, client);
 
 		}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
@@ -661,7 +661,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 					node.test_status = 'is_self'
 					client.end();
 
-				} if (j.type === 'distant_node_pong') {
+				} if (j.type === 'test_pong') {
 
 					// set the node_id as it may have originated from a node storing it as initial that has yet to connect
 					node.node_id = j.node_id;
@@ -1120,9 +1120,9 @@ dt.prototype.valid_server_message = function(conn, j) {
 	if (j.node_id === this.node_id) {
 		// tell the client that it connected to itself
 		this.server_send(conn, {type: 'is_self', node_id: this.node_id});
-	} else if (j.type === 'distant_node_ping') {
-		// respond with pong
-		this.server_send(conn, {type: 'distant_node_pong', node_id: this.node_id, ts: j.ts});
+	} else if (j.type === 'test_ping') {
+		// respond with test_pong
+		this.server_send(conn, {type: 'test_pong', node_id: this.node_id, ts: j.ts});
 	} else if (j.type === 'ping') {
 		// respond with pong
 		this.server_send(conn, {type: 'pong', node_id: this.node_id, ts: j.ts});
