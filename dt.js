@@ -617,6 +617,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 				if (j.type === 'is_self') {
 
+					node.node_id = j.node_id;
 					node.is_self = true;
 					node.test_status = 'is_self'
 					client.end();
