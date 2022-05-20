@@ -81,6 +81,8 @@ var dt = function(config) {
 	this.better_primary_latency_multiplier = .7;
 	// wait this long before purging an unreachable node
 	this.purge_node_unreachable_wait = 1000 * 60 * 60;
+	// retest after a successful test at this interval
+	this.retest_wait_period = 1000 * 60 * 10;
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -846,6 +848,14 @@ dt.prototype.clean = function() {
 					this.dt_object.distant_nodes.splice(c, 1);
 				}
 
+			} else if (n.test_status === 'success') {
+
+				// if dt.retest_wait_period has passed since the last test
+				// set the status to pending
+				if (Date.now() - n.last_test_success > this.dt_object.retest_wait_period) {
+					n.test_status = 'pending';
+				}
+
 			}
 
 			c--;
@@ -895,6 +905,14 @@ dt.prototype.clean = function() {
 						n.test_status = 'pending';
 					}
 
+				} else if (n.test_status === 'success') {
+
+					// if dt.retest_wait_period has passed since the last test
+					// set the status to pending
+					if (Date.now() - n.last_test_success > this.dt_object.retest_wait_period) {
+						n.test_status = 'pending';
+					}
+
 				}
 
 			} else {
@@ -904,10 +922,6 @@ dt.prototype.clean = function() {
 
 			l--;
 		}
-
-		// FIX
-		// reset test_status === success to test_status: pending every 10m + random(5m)
-		// to maintain an up to date test
 
 		// dt.connect() automatically reconnects if not connected
 		if (primary_node !== null) {
