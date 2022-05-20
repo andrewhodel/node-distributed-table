@@ -1,3 +1,7 @@
+Objects are synchronized across the network using the functions `dt.add_object(object)` and `dt.remove_object(object)` from any node on the network.
+
+Messages sent with `dt.send_message(object)` are sent to all nodes on the network that are online when they reach a connected peer.  They are received in the `message_received` event.
+
 # example
 
 Run 4 nodes, each on a different port on localhost.
@@ -13,15 +17,19 @@ node example4.js
 
 Copy the example.
 
-You can `dt.add_object()`, `dt.remove_object()` and listen for `started`, `add`, and `remove` events with `dt.emitter.addListener()`.
+## functions
 
-Everything is synchronized on every node.
+`dt.add_object(object)`, `dt.remove_object(object)` and `dt.send_message(object)`.
 
-All the work is done in memory.
+## events
+
+`'started', function() {}`, `'object_added', function(object) {}`, `'object_removed', function(object) {}` and `'message_received', function(object)` events are created with `dt.emitter.addListener()`.
+
+After the `started` event there is a `object_added` event for each existing object on the network.
 
 # security
 
-All messages are encrypted with XOR using the private key entered on every node.
+All data is encrypted with XOR using the private key entered on every node.
 
 # firewall
 
