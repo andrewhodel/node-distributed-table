@@ -98,7 +98,7 @@ var dt = function(config) {
 			process.exit(1);
 		}
 
-		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, origin_type: 'initial', primary_connection_failures: 0, node_id: null, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null})
+		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, origin_type: 'initial', primary_connection_failures: 0, node_id: null, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, conn: undefined});
 
 		c++;
 
@@ -414,6 +414,9 @@ dt.prototype.connect = function() {
 
 					// type open is the first message
 					if (vm.type === 'open') {
+
+						// set the conn object
+						primary_node.conn = conn;
 
 						// this is an authorized connection
 						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
@@ -1021,6 +1024,8 @@ dt.prototype.clean = function() {
 }
 
 dt.prototype.server_send = function(conn, j) {
+	// if there is a problem with the conn object
+	// add a third argument and send the node object
 
 	// expects a JSON object
 
@@ -1158,6 +1163,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 				// set (one of many) client node values
 				this.nodes[c].rtt = j.previous_rtt;
 				this.nodes[c].last_ping_time = Date.now();
+				this.nodes[c].conn = conn;
 
 				this.nodes[c].rtt_array.push(j.previous_rtt);
 				if (this.nodes[c].rtt_array.length > this.max_ping_count) {
