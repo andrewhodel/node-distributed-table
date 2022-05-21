@@ -782,6 +782,7 @@ dt.prototype.clean = function() {
 		console.log('\nnode id: ' + this.dt_object.node_id);
 		console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
 		console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
+		console.log('node objects', this.dt_object.objects.length);
 
 		// test latency of distant nodes and nodes
 
@@ -1440,6 +1441,8 @@ dt.prototype.compare_object_hashes_to_objects = function(object_hashes) {
 			missing_in_objects.push(hash);
 
 			// request this hash from the dt network
+			console.error('node recieved a hash in a object_hashes message that was not in objects');
+			process.exit(1)
 		}
 
 		l++;
