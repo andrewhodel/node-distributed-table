@@ -1219,9 +1219,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		while (c < this.nodes.length) {
 
 			var n = this.nodes[c];
-			if (this.node_connected(n) === true) {
-				this.server_send(conn, {type: 'distant_node', ip: n.ip, port: n.port, node_id: n.node_id});
-			}
+			this.server_send(conn, {type: 'distant_node', ip: n.ip, port: n.port, node_id: n.node_id});
 
 			c++;
 		}
@@ -1400,7 +1398,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		var missing_in_hashes = diff[0];
 		var missing_in_objects = diff[1];
 
-		// send them to the server
+		// send them to the client
 		var c = 0;
 		while (c < missing_in_hashes.length) {
 			this.server_send(conn, {type: 'add_object', object: missing_in_hashes[c][1]});
