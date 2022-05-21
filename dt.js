@@ -777,8 +777,8 @@ dt.prototype.clean = function() {
 
 	setInterval(function() {
 
-		console.log('node id: ' + this.dt_object.node_id, this.dt_object.ip, this.dt_object.port);
-		console.log('\nserver has ' + this.dt_object.server._connections + ' connections');
+		console.log('\nnode id: ' + this.dt_object.node_id);
+		console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
 		console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
 
 		// test latency of distant nodes and nodes
