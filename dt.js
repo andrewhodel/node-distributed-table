@@ -1246,19 +1246,40 @@ dt.prototype.valid_server_message = function(conn, j) {
 			c++;
 		}
 
+	} else if (j.type === 'request_object') {
+
+		// send the object requested by hash to the requesting node
+		var c = 0;
+		while (c < this.objects.length) {
+			if (this.objects[c][0] === j.object_hash) {
+				this.server_send(conn, {type: 'add_object', object: this.objects[c][1]});
+				break;
+			}
+			c++;
+		}
+
 	} else if (j.type === 'object_hashes') {
 
 		// a client node sent it's list of object sha256 checksums/hashes
-		console.log('client node sent object_hashes');
+		console.log('client node sent object_hashes', j.object_hashes.length);
 
-		var missing_objects = this.compare_object_hashes_to_objects(j.object_hashes);
-		console.log('sending missing objects', missing_objects);
+		var diff = this.compare_object_hashes_to_objects(j.object_hashes);
+		var missing_in_hashes = diff[0];
+		var missing_in_objects = diff[1];
 
-		// send them to the client
+		// send them to the server
 		var c = 0;
-		while (c < missing_objects.length) {
-			this.server_send(conn, {type: 'add_object', object: missing_objects[c][1]});
+		while (c < missing_in_hashes.length) {
+			this.server_send(conn, {type: 'add_object', object: missing_in_hashes[c][1]});
 			c++;
+		}
+
+		// this node is missing these objects
+		var l = 0;
+		while (l < missing_in_objects.length) {
+			// request each object from the origin node
+			this.server_send(conn, {type: 'request_object', object_hash: missing_in_objects[l]});
+			l++;
 		}
 
 	}
@@ -1392,19 +1413,40 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 			c++;
 		}
 
+	} else if (j.type === 'request_object') {
+
+		// send the object requested by hash to the requesting node
+		var c = 0;
+		while (c < this.objects.length) {
+			if (this.objects[c][0] === j.object_hash) {
+				this.client_send({type: 'add_object', object: this.objects[c][1]});
+				break;
+			}
+			c++;
+		}
+
 	} else if (j.type === 'object_hashes') {
 
 		// the server node sent it's list of object sha256 checksums/hashes
-		console.log('server node sent object_hashes');
+		console.log('server node sent object_hashes', j.object_hashes.length);
 
-		var missing_objects = this.compare_object_hashes_to_objects(j.object_hashes);
-		console.log('sending missing objects', missing_objects);
+		var diff = this.compare_object_hashes_to_objects(j.object_hashes);
+		var missing_in_hashes = diff[0];
+		var missing_in_objects = diff[1];
 
 		// send them to the server
 		var c = 0;
-		while (c < missing_objects.length) {
-			this.client_send({type: 'add_object', object: missing_objects[c][1]});
+		while (c < missing_in_hashes.length) {
+			this.client_send({type: 'add_object', object: missing_in_hashes[c][1]});
 			c++;
+		}
+
+		// this node is missing these objects
+		var l = 0;
+		while (l < missing_in_objects.length) {
+			// request each object from the origin node
+			this.client_send({type: 'request_object', object_hash: missing_in_objects[l]});
+			l++;
 		}
 
 	}
@@ -1413,43 +1455,14 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 dt.prototype.compare_object_hashes_to_objects = function(object_hashes) {
 	// compares object_hashes to dt.objects
-	// returns missing_in_hashes
+	// returns missing_in_hashes, missing_in_objects
 	// requests each missing object from the dt network
 
-	var missing_in_objects = [];
 	var missing_in_hashes = [];
-
-	// test each hash for existance in dt.objects
-	var l = 0;
-	while (l < object_hashes.length) {
-
-		var hash = object_hashes[l];
-		var found = false;
-
-		var c = 0;
-		while (c < this.objects.length) {
-			var obj = this.objects[c];
-			if (obj[0] === hash) {
-				found = true;
-				break;
-			}
-			c++;
-		}
-
-		if (found === false) {
-			// add missing hash
-			missing_in_objects.push(hash);
-
-			// request this hash from the dt network
-			console.error('node recieved a hash in a object_hashes message that was not in objects');
-			process.exit(1)
-		}
-
-		l++;
-
-	}
+	var missing_in_objects = [];
 
 	// test each object in dt.objects for existance in object_hashes
+	// problem is 0
 	var c = 0;
 	while (c < this.objects.length) {
 
@@ -1475,7 +1488,40 @@ dt.prototype.compare_object_hashes_to_objects = function(object_hashes) {
 
 	}
 
-	return missing_in_hashes;
+	if (c === 0) {
+		// all hashes are missing in dt.objects
+		missing_in_objects = object_hashes;
+	} else {
+
+		// test each hash for existance in dt.objects
+		var l = 0;
+		while (l < object_hashes.length) {
+
+			var hash = object_hashes[l];
+			var found = false;
+
+			var c = 0;
+			while (c < this.objects.length) {
+				var obj = this.objects[c];
+				if (obj[0] === hash) {
+					found = true;
+					break;
+				}
+				c++;
+			}
+
+			if (found === false) {
+				// add missing hash
+				missing_in_objects.push(hash);
+			}
+
+			l++;
+
+		}
+
+	}
+
+	return [missing_in_hashes, missing_in_objects];
 
 }
 
