@@ -95,7 +95,7 @@ var dt = function(config) {
 			process.exit(1);
 		}
 
-		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, type: 'initial', primary_connection_failures: 0, node_id: null, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0})
+		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, origin_type: 'initial', primary_connection_failures: 0, node_id: null, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0})
 
 		c++;
 
@@ -277,14 +277,12 @@ dt.prototype.connect = function() {
 				continue;
 			}
 
-			if (n.type === 'client') {
-				if (n.conn) {
-					// do not attempt connection to client nodes that are already connected
-					// a connection object means the node is connected
-					console.log('\tskipped as connected client');
-					c++;
-					continue;
-				}
+			if (n.conn) {
+				// do not attempt connection to nodes that are already connected
+				// a connection object means the node is connected
+				console.log('\tskipped as connected client');
+				c++;
+				continue;
 			}
 
 			// finding the node with the lowest primary_connection_failures
@@ -798,7 +796,7 @@ dt.prototype.clean = function() {
 				continue;
 			}
 
-			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
+			console.log('connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
 			if (n.last_test_success !== undefined) {
 
@@ -854,12 +852,12 @@ dt.prototype.clean = function() {
 				continue;
 			}
 
-			console.log('connected_as_primary: ' + n.connected_as_primary + ', type: ' + n.type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
+			console.log('connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_primary_connection: ' + ((Date.now() - n.last_primary_connection) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
 			// initial nodes are not subject to unreachable
 			// there address is written into the initial list before node launch
 			// the node that is connected with the primary client is also not subject to unreachable
-			if (n.last_test_success !== undefined && n.type !== 'initial' && n.connected_as_primary !== true) {
+			if (n.last_test_success !== undefined && n.origin_type !== 'initial' && n.connected_as_primary !== true) {
 
 				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
 				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
@@ -883,11 +881,11 @@ dt.prototype.clean = function() {
 					if (n.test_failures <= 5) {
 						// retest node
 						this.dt_object.test_node(n);
-					} else if (n.type !== 'initial') {
+					} else if (n.origin_type !== 'initial') {
 						// if the node has failed this many times, remove it
 						// initial nodes always stay
 						this.dt_object.nodes.splice(l, 1);
-					} else if (n.type === 'initial') {
+					} else if (n.origin_type === 'initial') {
 						// reset initial nodes test_status so they are available in the connection routine when reachable
 						n.test_status = 'pending';
 					}
@@ -1080,7 +1078,6 @@ dt.prototype.valid_server_message = function(conn, j) {
 		var c = 0;
 		while (c < this.nodes.length) {
 			if (this.nodes[c].node_id === j.node_id) {
-				// FIX
 				// set primary client node values
 				this.nodes[c].rtt = j.previous_rtt;
 
@@ -1113,14 +1110,12 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			if (n.node_id === j.node_id || (n.ip === node_ip && n.port === j.listening_port)) {
 				// update the node
-				n = {ip: node_ip, port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: []};
+				n = {ip: node_ip, port: j.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: []};
 				updated = true;
-			} else if (n.type === 'client') {
-				if (n.conn) {
-					// tell this client node that a client connected
-					//console.log('sending distant_node to a client');
-					this.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: j.listening_port, node_id: j.node_id});
-				}
+			} else if (n.conn) {
+				// tell this client node that a client connected
+				//console.log('sending distant_node to a client');
+				this.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: j.listening_port, node_id: j.node_id});
 			}
 			c++;
 		}
@@ -1131,7 +1126,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		if (updated === false) {
 			// add node to this.nodes
-			this.nodes.push({ip: node_ip, port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0});
+			this.nodes.push({ip: node_ip, port: j.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0});
 		}
 
 		// send the nodes as type: distant_node
@@ -1186,7 +1181,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false, origin_type: 'distant'});
 
 			// the distant node may need to know of this node
 			// send a distant_node message of this node to the client
@@ -1194,11 +1189,11 @@ dt.prototype.valid_server_message = function(conn, j) {
 			// there is no requirement to do this more than once
 			this.server_send(conn, {type: 'distant_node', ip: null, port: this.port, node_id: this.node_id});
 
-			// send through to all the connected clients
+			// send through to all connected clients
 			var c = 0;
 			while (c < this.nodes.length) {
 				// except the one that sent it
-				if (this.nodes[c].type === 'client' && this.nodes[c].node_id !== conn.node_id) {
+				if (this.nodes[c].node_id !== conn.node_id) {
 					if (this.nodes[c].conn) {
 						//console.log('relaying distant_node to a client');
 						this.server_send(this.nodes[c].conn, {type: 'distant_node', ip: j.ip, port: j.port, node_id: j.node_id});
@@ -1240,7 +1235,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		var c = 0;
 		while (c < this.nodes.length) {
 			// except the one that sent it
-			if (this.nodes[c].type === 'client' && this.nodes[c].node_id !== conn.node_id) {
+			if (this.nodes[c].node_id !== conn.node_id) {
 				if (this.nodes[c].conn) {
 					this.server_send(this.nodes[c].conn, {type: 'add_object', object: j.object});
 				}
@@ -1347,7 +1342,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false, origin_type: 'distant'});
 
 		}
 
@@ -1378,10 +1373,8 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 		// send to all the connected clients
 		var c = 0;
 		while (c < this.nodes.length) {
-			if (this.nodes[c].type === 'client') {
-				if (this.nodes[c].conn) {
-					this.server_send(this.nodes[c].conn, {type: 'add_object', object: j.object});
-				}
+			if (this.nodes[c].conn) {
+				this.server_send(this.nodes[c].conn, {type: 'add_object', object: j.object});
 			}
 			c++;
 		}
@@ -1445,10 +1438,8 @@ dt.prototype.add_object = function(j) {
 	// send the object to all the clients
 	var c = 0;
 	while (c < this.nodes.length) {
-		if (this.nodes[c].type === 'client') {
-			if (this.nodes[c].conn) {
-				this.server_send(this.nodes[c].conn, {type: 'add_object', object: j});
-			}
+		if (this.nodes[c].conn) {
+			this.server_send(this.nodes[c].conn, {type: 'add_object', object: j});
 		}
 		c++;
 	}
