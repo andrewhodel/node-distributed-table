@@ -259,13 +259,16 @@ dt.prototype.connect = function() {
 		// this ensures that the primary connection is to a stable node
 		var lowest_primary_connection_failures = -1;
 		var primary_node = {};
+		var lowest_avg_rtt = -1;
 
 		var c = 0;
 		while (c < this.dt_object.nodes.length) {
 
 			var n = this.dt_object.nodes[c];
 
-			console.log('test primary node against primary_connection_failures', n.node_id, n.ip, n.port);
+			var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
+
+			console.log('test primary node against primary_connection_failures', n.node_id, n.ip, n.port, n.primary_connection_failures);
 
 			if (n.is_self === true) {
 				// do not attempt connection to self
@@ -287,6 +290,7 @@ dt.prototype.connect = function() {
 			// finding the node with the lowest primary_connection_failures
 			if (n.primary_connection_failures < lowest_primary_connection_failures || lowest_primary_connection_failures === -1) {
 				primary_node = n;
+				lowest_avg_rtt = n_avg;
 				lowest_primary_connection_failures = n.primary_connection_failures;
 
 				console.log('better primary node selection against primary_connection_failures');
@@ -296,18 +300,17 @@ dt.prototype.connect = function() {
 
 		}
 
-		// connect_node has the lowest primary_connection_failures
+		// primary_node has the lowest primary_connection_failures
 		// test the nodes that equal the primary_connection_failures count
 		// and choose the one with the lowest avg rtt
 		// this ensures that the primary connection is stable and has a low round trip time
-		var lowest_avg_rtt = -1;
 		var r = 0;
 		while (r < this.dt_object.nodes.length) {
 			var n = this.dt_object.nodes[r];
 
 			var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
 
-			console.log('test primary node against avg_rtt', n.node_id, n.ip, n.port);
+			console.log('test primary node against avg_rtt', n.node_id, n.ip, n.port, n_avg);
 
 			if (isNaN(n_avg)) {
 				// skip nodes with no average rtt
@@ -315,7 +318,7 @@ dt.prototype.connect = function() {
 			} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
 				// skip nodes that have more primary_connection failures
 				console.log('\tskipped per more primary_connection_failures than lowest');
-			} else if (n_avg < lowest_avg_rtt || lowest_avg_rtt === -1) {
+			} else if (n_avg < lowest_avg_rtt) {
 				// there is a node with better latency
 				primary_node = n;
 				lowest_avg_rtt = n_avg;
