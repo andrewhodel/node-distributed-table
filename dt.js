@@ -321,11 +321,13 @@ dt.prototype.connect = function() {
 		while (r < this.dt_object.nodes.length) {
 			var n = this.dt_object.nodes[r];
 
-			var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
+			var n_avg = this.dt_object.rtt_avg(n.rtt_array);
 
-			console.log('test primary node against avg_rtt', n.node_id, n.ip, n.port, n_avg);
+			console.log('test primary node against average rtt', n.node_id, n.ip, n.port, n_avg);
 
-			if (isNaN(n_avg)) {
+			if (n.is_self === true) {
+				// skip self nodes
+			} else if (isNaN(n_avg)) {
 				// skip nodes with no average rtt
 				console.log('\tskipped with no avg_rtt');
 			} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
@@ -814,7 +816,11 @@ dt.prototype.clean = function() {
 
 		console.log('\nnode id: ' + this.dt_object.node_id);
 		console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
-		console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
+		if (this.dt_object.client) {
+			console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
+		} else {
+			console.log('primary client is not connected');
+		}
 		console.log('node objects', this.dt_object.objects.length);
 		console.log('non expired message_ids', this.dt_object.message_ids.length);
 
