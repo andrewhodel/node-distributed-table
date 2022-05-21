@@ -1118,13 +1118,13 @@ dt.prototype.node_connected = function(node) {
 
 	// returns true or false
 	if (node === undefined) {
-		console.log('node testing connected status undefined');
+		//console.log('node testing connected status undefined');
 		return false;
 	} else if (node.last_ping_time === null) {
-		console.log('node testing connected status last_ping_time=null');
+		//console.log('node testing connected status last_ping_time=null');
 		return false;
 	} else if (Date.now() - node.last_ping_time > this.ping_interval * 2) {
-		console.log(node.ip + ':' + node.port + ' testing connected status', Date.now() - Number(node.last_ping_time));
+		//console.log(node.ip + ':' + node.port + ' testing connected status', Date.now() - Number(node.last_ping_time));
 		return false;
 	} else {
 		return true;
