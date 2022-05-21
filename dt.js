@@ -129,12 +129,12 @@ var dt = function(config) {
 
 		var test_all_data = function() {
 
-			//console.log('test_all_data()', data_len, data.length, data.toString());
+			//console.log('server read test_all_data()', data_len, data.length);
 			if (data_len <= data.length) {
 
 				// decrypt the data_len
 				var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
-				//console.log('decrypted', decrypted.length, decrypted.toString());
+				//console.log('server decrypted read', decrypted.length, decrypted.toString());
 
 				try {
 
@@ -171,9 +171,19 @@ var dt = function(config) {
 				}
 
 				// reset data
-				data = data.subarray(0, data_len);
-				// reset data_len
-				data_len = 0;
+				data = data.subarray(data_len, data.length);
+				//console.log('new data.length', data.length);
+
+				if (data.length > 0) {
+					// get length
+					data_len = data.readUInt32BE(0);
+					data = data.subarray(4);
+					test_all_data();
+				} else {
+					// no new data
+					// reset data_len
+					data_len = 0;
+				}
 
 				return;
 
@@ -195,7 +205,7 @@ var dt = function(config) {
 				//console.log('first chunk, data length', data_len);
 
 				// add to data without length
-				data = chunk.subarray(4);
+				data = Buffer.concat([data, chunk.subarray(4)]);
 
 				test_all_data();
 
@@ -385,12 +395,12 @@ dt.prototype.connect = function() {
 
 		var test_all_data = function() {
 
-			//console.log('test_all_data()', data_len, data.length, data.toString());
+			//console.log('primary client read test_all_data()', data_len, data.length);
 			if (data_len <= data.length) {
 
 				// decrypt the data_len
 				var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
-				//console.log('decrypted', decrypted.length, decrypted.toString());
+				//console.log('primary client decrypted read', decrypted.length, decrypted.toString());
 
 				try {
 
@@ -413,9 +423,19 @@ dt.prototype.connect = function() {
 				}
 
 				// reset data
-				data = data.subarray(0, data_len);
-				// reset data_len
-				data_len = 0;
+				data = data.subarray(data_len, data.length);
+				//console.log('new data.length', data.length);
+
+				if (data.length > 0) {
+					// get length
+					data_len = data.readUInt32BE(0);
+					data = data.subarray(4);
+					test_all_data();
+				} else {
+					// no new data
+					// reset data_len
+					data_len = 0;
+				}
 
 				return;
 
@@ -437,7 +457,7 @@ dt.prototype.connect = function() {
 				//console.log('first chunk, data length', data_len);
 
 				// add to data without length
-				data = chunk.subarray(4);
+				data = Buffer.concat([data, chunk.subarray(4)]);
 
 				test_all_data();
 
@@ -592,17 +612,12 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	var test_all_data = function() {
 
-		//console.log('test_all_data()', data_len, data.length, data.toString());
+		//console.log('test client read test_all_data()', data_len, data.length);
 		if (data_len <= data.length) {
 
 			// decrypt the data_len
 			var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
-			//console.log('decrypted', decrypted.length, decrypted.toString());
-
-			// reset data
-			data = data.subarray(0, data_len);
-			// reset data_len
-			data_len = 0;
+			//console.log('test client decrypted read', decrypted.length, decrypted.toString());
 
 			try {
 				// decrypted is a valid message
@@ -701,6 +716,21 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 				node.test_failures++;
 			}
 
+			// reset data
+			data = data.subarray(data_len, data.length);
+			//console.log('new data.length', data.length);
+
+			if (data.length > 0) {
+				// get length
+				data_len = data.readUInt32BE(0);
+				data = data.subarray(4);
+				test_all_data();
+			} else {
+				// no new data
+				// reset data_len
+				data_len = 0;
+			}
+
 			return;
 
 		}
@@ -721,7 +751,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 			//console.log('first chunk, data length', data_len);
 
 			// add to data without length
-			data = chunk.subarray(4);
+			data = Buffer.concat([data, chunk.subarray(4)]);
 
 			test_all_data();
 
@@ -985,12 +1015,13 @@ dt.prototype.server_send = function(conn, j) {
 	b = Buffer.concat([b, jsb]);
 
 	if (conn) {
+		//console.log('server write', b.length, JSON.stringify(j));
 		conn.write(b);
 	}
 
 }
 
-dt.prototype.client_send = function(j, client=null) {
+dt.prototype.client_send = function(j, distant_node_client=null) {
 
 	// send to a server
 	// as the client
@@ -1008,11 +1039,13 @@ dt.prototype.client_send = function(j, client=null) {
 
 	b = Buffer.concat([b, jsb]);
 
-	if (client !== null) {
+	if (distant_node_client !== null) {
 		// this is to a distant node
-		client.write(b);
+		//console.log('distant node client write', b.length, JSON.stringify(j));
+		distant_node_client.write(b);
 	} else if (this.client) {
 		// send as the primary client
+		//console.log('primary client write', b.length, JSON.stringify(j));
 		this.client.write(b);
 	}
 
@@ -1263,6 +1296,21 @@ dt.prototype.valid_server_message = function(conn, j) {
 		// a client node sent it's list of object sha256 checksums/hashes
 		console.log('client node sent object_hashes', j.object_hashes.length);
 
+		if (j.object_hashes.length === 0) {
+
+			//console.log('sending all objects to client node', this.objects);
+
+			// send all of them
+			var c = 0;
+			while (c < this.objects.length) {
+				this.server_send(conn, {type: 'add_object', object: this.objects[c][1]});
+				c++;
+			}
+
+			return;
+
+		}
+
 		var diff = this.compare_object_hashes_to_objects(j.object_hashes);
 		var missing_in_hashes = diff[0];
 		var missing_in_objects = diff[1];
@@ -1429,6 +1477,19 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 		// the server node sent it's list of object sha256 checksums/hashes
 		console.log('server node sent object_hashes', j.object_hashes.length);
+
+		if (j.object_hashes.length === 0) {
+
+			// send all of them
+			var c = 0;
+			while (c < this.objects.length) {
+				this.client_send({type: 'add_object', object: this.objects[c][1]});
+				c++;
+			}
+
+			return;
+
+		}
 
 		var diff = this.compare_object_hashes_to_objects(j.object_hashes);
 		var missing_in_hashes = diff[0];
