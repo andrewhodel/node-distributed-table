@@ -375,29 +375,6 @@ dt.prototype.connect = function() {
 
 			}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
-			// send the initial nodes as type: distant node each time this node connects as a client
-			// to each connected client
-			var c = 0;
-			while (c < this.dt_object.nodes.length) {
-
-				var n = this.dt_object.nodes[c];
-				if (n.type === 'initial') {
-
-					var l = 0;
-					while (l < this.dt_object.nodes.length) {
-						if (this.dt_object.nodes[l].type === 'client') {
-							if (this.dt_object.nodes[l].conn) {
-								this.dt_object.server_send(this.dt_object.nodes[l].conn, {type: 'distant_node', ip: n.ip, port: n.port, node_id: n.node_id});
-							}
-						}
-						l++;
-					}
-
-				}
-
-				c++;
-			}
-
 		}.bind({dt_object: this.dt_object}));
 
 		// set client timeout of the socket
@@ -1139,7 +1116,6 @@ dt.prototype.valid_server_message = function(conn, j) {
 				updated = true;
 			} else if (n.type === 'client') {
 				if (n.conn) {
-					// a connection object means the node is connected
 					// tell this client node that a client connected
 					//console.log('sending distant_node to a client');
 					this.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: j.listening_port, node_id: j.node_id});
@@ -1148,13 +1124,26 @@ dt.prototype.valid_server_message = function(conn, j) {
 			c++;
 		}
 
-		// tell the server that a distant_node that is a client connected 
+		// tell the server that a distant_node connected as a client
 		//console.log('sending distant_node to the server');
 		this.client_send({type: 'distant_node', ip: node_ip, port: j.listening_port, node_id: j.node_id});
 
 		if (updated === false) {
 			// add node to this.nodes
 			this.nodes.push({ip: node_ip, port: j.listening_port, is_self: false, type: 'client', primary_connection_failures: 0, node_id: j.node_id, client_id: conn.client_id, conn: conn, last_primary_connection: Date.now(), rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0});
+		}
+
+		// send the nodes as type: distant_node
+		// to the client that connected
+		var c = 0;
+		while (c < this.nodes.length) {
+
+			var n = this.nodes[c];
+			if (conn) {
+				this.server_send(conn, {type: 'distant_node', ip: n.ip, port: n.port, node_id: n.node_id});
+			}
+
+			c++;
 		}
 
 	} else if (j.type === 'distant_node') {
