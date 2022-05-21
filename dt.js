@@ -281,7 +281,7 @@ dt.prototype.connect = function() {
 
 			var n = this.dt_object.nodes[c];
 
-			var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
+			var n_avg = this.dt_object.rtt_avg(n.rtt_array);
 
 			console.log('test primary node against primary_connection_failures', n.node_id, n.ip, n.port, n.primary_connection_failures);
 
@@ -329,7 +329,7 @@ dt.prototype.connect = function() {
 				// skip self nodes
 			} else if (isNaN(n_avg)) {
 				// skip nodes with no average rtt
-				console.log('\tskipped with no avg_rtt');
+				console.log('\tskipped with no average rtt');
 			} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
 				// skip nodes that have more primary_connection failures
 				console.log('\tskipped per more primary_connection_failures than lowest');
@@ -338,7 +338,7 @@ dt.prototype.connect = function() {
 				primary_node = n;
 				lowest_avg_rtt = n_avg;
 
-				console.log('better primary node selection against avg_rtt', n.node_id);
+				console.log('better primary node selection against average rtt', n.node_id);
 			}
 			r++;
 		}
@@ -353,7 +353,7 @@ dt.prototype.connect = function() {
 			return;
 		}
 
-		console.log('\n\n\n\n\n\n\nbest node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'avg_rtt: ' + this.dt_object.rtt_avg(primary_node.avg_rtt));
+		console.log('\n\n\n\n\n\n\nbest node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'average rtt: ' + this.dt_object.rtt_avg(primary_node.rtt_array));
 
 		// ping the server
 		var ping;
@@ -979,13 +979,15 @@ dt.prototype.clean = function() {
 				while (r < this.dt_object.nodes.length) {
 					var n = this.dt_object.nodes[r];
 
-					var n_avg = this.dt_object.rtt_avg(n.avg_rtt);
-					var pn_avg = this.dt_object.rtt_avg(primary_node.avg_rtt);
+					var n_avg = this.dt_object.rtt_avg(n.rtt_array);
+					var pn_avg = this.dt_object.rtt_avg(primary_node.rtt_array);
 
 					if (isNaN(n_avg) || isNaN(pn_avg)) {
 						// skip nodes with no average rtt
-					} else if (n_avg * this.dt_object.better_primary_latency_multiplier > pn_avg) {
+					} else if (n_avg < pn_avg * this.dt_object.better_primary_latency_multiplier) {
 						// there is a node with better latency
+						// .7 < 1 * .7 = .7 false
+						// .6 < 1 * .7 = .7 true
 						dc = true;
 						break;
 					}
