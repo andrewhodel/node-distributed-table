@@ -149,15 +149,15 @@ var dt = function(config) {
 						// this is an authorized connection
 						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
 
-						// send object_diff
-						var o_diff = [];
+						// send object_hashes
+						var o_hashes = [];
 						var n = 0;
 						while (n < this.dt_object.objects.length) {
 							// add the sha256 checksum to the array
-							o_diff.push(this.dt_object.objects[n][0]);
+							o_hashes.push(this.dt_object.objects[n][0]);
 							n++;
 						}
-						this.dt_object.server_send(conn, {type: 'object_diff', object_diff: o_diff});
+						this.dt_object.server_send(conn, {type: 'object_hashes', object_hashes: o_hashes});
 
 					}
 
@@ -211,9 +211,11 @@ var dt = function(config) {
 		});
 
 		conn.on('end', function() {
-
 			console.log('client disconnected');
+		});
 
+		conn.on('error', function(err) {
+			console.error('client error', err);
 		});
 
 	}.bind({dt_object: this}));
@@ -355,15 +357,15 @@ dt.prototype.connect = function() {
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
-			// send object_diff
-			var o_diff = [];
+			// send object_hashes
+			var o_hashes = [];
 			var n = 0;
 			while (n < this.dt_object.objects.length) {
 				// add the sha256 checksum to the array
-				o_diff.push(this.dt_object.objects[n][0]);
+				o_hashes.push(this.dt_object.objects[n][0]);
 				n++;
 			}
-			this.dt_object.client_send({type: 'object_diff', object_diff: o_diff});
+			this.dt_object.client_send({type: 'object_hashes', object_hashes: o_hashes});
 
 			// ping the server
 			// and send the previous rtt
@@ -1243,10 +1245,20 @@ dt.prototype.valid_server_message = function(conn, j) {
 			c++;
 		}
 
-	} else if (j.type === 'object_diff') {
+	} else if (j.type === 'object_hashes') {
 
 		// a client node sent it's list of object sha256 checksums/hashes
-		console.log('client node sent object_diff', j, this.objects);
+		console.log('client node sent object_hashes');
+
+		var missing_objects = this.compare_object_hashes_to_objects(j.object_hashes);
+		console.log('sending missing objects', missing_objects);
+
+		// send them to the client
+		var c = 0;
+		while (c < missing_objects.length) {
+			this.server_send(conn, {type: 'add_object', object: missing_objects[c][1]});
+			c++;
+		}
 
 	}
 
@@ -1379,12 +1391,88 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 			c++;
 		}
 
-	} else if (j.type === 'object_diff') {
+	} else if (j.type === 'object_hashes') {
 
 		// the server node sent it's list of object sha256 checksums/hashes
-		console.log('server node sent object_diff', j, this.objects);
+		console.log('server node sent object_hashes');
+
+		var missing_objects = this.compare_object_hashes_to_objects(j.object_hashes);
+		console.log('sending missing objects', missing_objects);
+
+		// send them to the server
+		var c = 0;
+		while (c < missing_objects.length) {
+			this.client_send({type: 'add_object', object: missing_objects[c][1]});
+			c++;
+		}
 
 	}
+
+}
+
+dt.prototype.compare_object_hashes_to_objects = function(object_hashes) {
+	// compares object_hashes to dt.objects
+	// returns missing_in_hashes
+	// requests each missing object from the dt network
+
+	var missing_in_objects = [];
+	var missing_in_hashes = [];
+
+	// test each hash for existance in dt.objects
+	var l = 0;
+	while (l < object_hashes.length) {
+
+		var hash = object_hashes[l];
+		var found = false;
+
+		var c = 0;
+		while (c < this.objects.length) {
+			var obj = this.objects[c];
+			if (obj[0] === hash) {
+				found = true;
+				break;
+			}
+			c++;
+		}
+
+		if (found === false) {
+			// add missing hash
+			missing_in_objects.push(hash);
+
+			// request this hash from the dt network
+		}
+
+		l++;
+
+	}
+
+	// test each object in dt.objects for existance in object_hashes
+	var c = 0;
+	while (c < this.objects.length) {
+
+		var object = this.objects[c];
+		var found = false;
+
+		var l = 0;
+		while (l < object_hashes.length) {
+			var hash = object_hashes[l];
+			if (hash === object[0]) {
+				found = true;
+				break;
+			}
+			l++;
+		}
+
+		if (found === false) {
+			// add missing object
+			missing_in_hashes.push(object);
+		}
+
+		c++;
+
+	}
+
+	return missing_in_hashes;
 
 }
 
