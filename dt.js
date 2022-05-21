@@ -70,6 +70,7 @@ var dt = function(config) {
 	this.nodes = [];
 	this.distant_nodes = [];
 	this.objects = [];
+	this.message_ids = [];
 
 	// advanced/non configurable options
 	this.max_test_failures = 5;
@@ -83,6 +84,8 @@ var dt = function(config) {
 	this.purge_node_unreachable_wait = 1000 * 60 * 60;
 	// retest after a successful test at this interval
 	this.retest_wait_period = 1000 * 60 * 10;
+	// do not allow messages with a duplicate message_id more than this often
+	this.message_duplicate_expire = 1000 * 60 * 5;
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -813,6 +816,18 @@ dt.prototype.clean = function() {
 		console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
 		console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
 		console.log('node objects', this.dt_object.objects.length);
+		console.log('non expired message_ids', this.dt_object.message_ids.length);
+
+		var v = this.dt_object.message_ids.length-1;
+		while (v >= 0) {
+			var m = this.dt_object.message_ids[v];
+
+			if (Date.now() - m[1] > this.dt_object.message_duplicate_expire) {
+				// message with this message_id can only arrive once within the time of dt.message_duplicate_expire
+				this.dt_object.message_ids.splice(v, 1);
+			}
+			v--;
+		}
 
 		// test latency of distant nodes and nodes
 
@@ -1240,6 +1255,42 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		}
 
+	} else if (j.type === 'message') {
+
+		// the client node sent a message
+
+		// make sure this message has not already arrived
+		var n = 0;
+		while (n < this.message_ids.length) {
+			var mid = this.message_ids[n][0];
+			if (mid === j.message_id) {
+				// message already arrived
+				return;
+			}
+			n++;
+		}
+
+		//console.log('client sent a message to this node', j);
+		this.emitter.emit('message_recieved', j.message);
+
+		// add the message_id
+		this.message_ids.push([j.message_id, Date.now()]);
+
+		// send the object to the server
+		this.client_send(j);
+
+		// send to all the connected clients except this one
+		var c = 0;
+		while (c < this.nodes.length) {
+			// except the one that sent it
+			if (this.nodes[c].node_id !== conn.node_id) {
+				if (this.nodes[c].conn) {
+					this.server_send(this.nodes[c].conn, j);
+				}
+			}
+			c++;
+		}
+
 	} else if (j.type === 'add_object') {
 
 		// the client node sent an object
@@ -1429,6 +1480,36 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 		}
 
+	} else if (j.type === 'message') {
+
+		// the server node sent a message
+
+		// make sure this message has not already arrived
+		var n = 0;
+		while (n < this.message_ids.length) {
+			var mid = this.message_ids[n][0];
+			if (mid === j.message_id) {
+				// message already arrived
+				return;
+			}
+			n++;
+		}
+
+		//console.log('server sent a message to this node', j);
+		this.emitter.emit('message_recieved', j.message);
+
+		// add the message_id
+		this.message_ids.push([j.message_id, Date.now()]);
+
+		// send to all the connected clients
+		var c = 0;
+		while (c < this.nodes.length) {
+			if (this.nodes[c].conn) {
+				this.server_send(this.nodes[c].conn, j);
+			}
+			c++;
+		}
+
 	} else if (j.type === 'add_object') {
 
 		// the server node sent an object
@@ -1608,6 +1689,26 @@ dt.prototype.object_sha256_hash = function(j) {
 	sha256_hash.update(JSON.stringify(ordered));;
 
 	return sha256_hash.digest('hex');
+
+}
+
+dt.prototype.send_message = function(j) {
+
+	// send a message to all the nodes in the network
+
+	var mid = crypto.randomUUID();
+
+	// send the object to the server
+	this.client_send({type: 'message', message: j, message_id: mid});
+
+	// send the object to all the clients
+	var c = 0;
+	while (c < this.nodes.length) {
+		if (this.nodes[c].conn) {
+			this.server_send(this.nodes[c].conn, {type: 'message', message: j, message_id: mid});
+		}
+		c++;
+	}
 
 }
 

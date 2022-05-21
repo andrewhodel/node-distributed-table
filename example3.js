@@ -25,3 +25,11 @@ dt_node.emitter.addListener('message_recieved', function(m) {
 	console.log('dt message_recieved event', m);
 
 });
+
+// send a message every 5 seconds
+setInterval(function() {
+
+	console.log('sending message to all nodes');
+	dt_node.send_message({some_key: 'an object is a nice message format if amongst online nodes'});
+
+}, 5000);
