@@ -1698,6 +1698,9 @@ dt.prototype.send_message = function(j) {
 
 	var mid = crypto.randomUUID();
 
+	// add the message_id
+	this.message_ids.push([mid, Date.now()]);
+
 	// send the object to the server
 	this.client_send({type: 'message', message: j, message_id: mid});
 
