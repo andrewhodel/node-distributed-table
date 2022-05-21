@@ -1252,7 +1252,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		while (c < this.objects.length) {
 			var obj = this.objects[c];
 			if (obj[0] === sha256_hash) {
-				console.log('client sent duplicate object in add_object', j.object);
+				//console.log('client sent duplicate object in add_object', j.object);
 				return;
 			}
 			c++;
@@ -1262,7 +1262,8 @@ dt.prototype.valid_server_message = function(conn, j) {
 		var o = [sha256_hash, j.object];
 		this.objects.push(o);
 
-		console.log('client sent add_object to this node', o, this.objects.length);
+		//console.log('client sent add_object to this node', o, this.objects.length);
+		this.emitter.emit('object_added', j.object);
 
 		// send the object to the server
 		this.client_send({type: 'add_object', object: j.object});
@@ -1440,7 +1441,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 		while (c < this.objects.length) {
 			var obj = this.objects[c];
 			if (obj[0] === sha256_hash) {
-				console.log('server sent duplicate object in add_object', j.object);
+				//console.log('server sent duplicate object in add_object', j.object);
 				return;
 			}
 			c++;
@@ -1450,7 +1451,8 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 		var o = [sha256_hash, j.object];
 		this.objects.push(o);
 
-		console.log('server sent add_object to this node', o, this.objects.length);
+		//console.log('server sent add_object to this node', o, this.objects.length);
+		this.emitter.emit('object_added', j.object);
 
 		// send to all the connected clients
 		var c = 0;

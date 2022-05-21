@@ -4,13 +4,14 @@ Messages sent with `dt.send_message(object)` are sent to all nodes on the networ
 
 # example
 
-Run 4 nodes, each on a different port on localhost.
+Run 5 nodes, each on a different port on localhost.
 
 ```
 node example1.js
 node example2.js
 node example3.js
 node example4.js
+node example5.js
 ```
 
 # implement
