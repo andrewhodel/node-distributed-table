@@ -1106,6 +1106,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 		var updated = false;
 		var c = 0;
+		// tell all other clients that this node connected
 		while (c < this.nodes.length) {
 
 			var n = this.nodes[c];
