@@ -55,3 +55,21 @@ All data is encrypted with XOR using the private key entered on every node.
 Invalid users making too many attempts are blocked by node-ip-ac
 
 https://github.com/andrewhodel/node-ip-ac
+
+# example 1. make a CDN
+
+Use the master node to load content via `add_object()`.
+
+Each HTTPS server running as a dt node can send it's public IP address, geographic location and online status with `send_message()` at regular intervals to a webserver that redirects with `HTTP 301`.
+
+Any updates to the content from the master automatically update all nodes.
+
+# example 2. DNS record publishing/zone transfers
+
+Any number of DNS servers can be replicated by being nodes of a dt network by using master nodes to add or remove records.
+
+# example 3. file synchronization and backups
+
+Maintain any number of dt nodes on the Internet and start your master node to replicate and store all of your files on every node.
+
+Store the file data in dt objects as base64 strings, compress it if you need to.
