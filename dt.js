@@ -1736,8 +1736,11 @@ dt.prototype.send_message = function(j) {
 	// send the object to all the clients
 	var c = 0;
 	while (c < this.nodes.length) {
-		if (this.node_connected(this.nodes[c]) === true) {
-			this.server_send(this.nodes[c].conn, {type: 'message', message: j, message_id: mid});
+		var n = this.nodes[c];
+		if (n.connected_as_primary === true) {
+			// the primary client is connected to a server
+		} else if (this.node_connected(n) === true) {
+			this.server_send(n.conn, {type: 'message', message: j, message_id: mid});
 		}
 		c++;
 	}
@@ -1771,8 +1774,11 @@ dt.prototype.add_object = function(j) {
 	// send the object to all the clients
 	var c = 0;
 	while (c < this.nodes.length) {
-		if (this.node_connected(this.nodes[c]) === true) {
-			this.server_send(this.nodes[c].conn, {type: 'add_object', object: j});
+		var n = this.nodes[c];
+		if (n.connected_as_primary === true) {
+			// the primary client is connected to a server
+		} else if (this.node_connected(n) === true) {
+			this.server_send(n.conn, {type: 'add_object', object: j});
 		}
 		c++;
 	}
