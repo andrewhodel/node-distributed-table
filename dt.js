@@ -32,6 +32,7 @@ var ipac = require('./node-ip-ac/node-ip-ac.js');
 var dt = function(config) {
 
 	// config {}
+	// master		boolean		one master node per dt
 	// port			number		port to listen on
 	// key			string		key to encrypt all traffic, common to all nodes
 	// nodes		[string]	list of IPv4 and IPv6 addresses of some public nodes
@@ -39,7 +40,9 @@ var dt = function(config) {
 	// ping_interval	number		ping interval in milliseconds
 
 	var init_error = [];
-	if (typeof(config.port) !== 'number') {
+	if (typeof(config.master) !== 'boolean') {
+		config.master = false;
+	} else if (typeof(config.port) !== 'number') {
 		init_error.push('new dt(config), config.port must be a number with the udp port to listen on');
 	}
 	if (typeof(config.key) !== 'string') {
@@ -61,6 +64,7 @@ var dt = function(config) {
 	}
 
 	// configurable options
+	this.master = config.master;
 	this.port = Number(config.port);
 	this.key = Buffer.from(config.key);
 	this.timeout = Number(config.timeout);
