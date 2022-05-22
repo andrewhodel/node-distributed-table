@@ -47,3 +47,7 @@ This means that an object_diff will accept changes but not make them.
 In other words an offline node that has some object that was removed by the master shall be removed when the offline node reconnects.  Objects added by the master while offline shall be added.  Nothing different in the node that was offline will be kept or returned to the dt.
 
 If a segment of nodes goes offline together, when they reconnect to a node that has a path to the master their objects will be synchronized.
+
+# running without a master
+
+No node is required to be a master in a dt network, but the nodes can only send and receive message objects.
