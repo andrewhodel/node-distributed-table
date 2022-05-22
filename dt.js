@@ -144,6 +144,12 @@ var dt = function(config) {
 					// decrypted is a valid message
 					var vm = JSON.parse(decrypted);
 
+					if (vm.node_id === this.dt_object.node_id) {
+						// tell the client that it connected to itself
+						this.dt_object.server_send(conn, {type: 'is_self', node_id: this.dt_object.node_id});
+						return;
+					}
+
 					// type open is the first message
 					if (vm.type === 'open') {
 
@@ -216,9 +222,12 @@ var dt = function(config) {
 						}
 						this.dt_object.server_send(conn, {type: 'object_hashes', object_hashes: o_hashes});
 
-					}
+					} else {
 
-					this.dt_object.valid_server_message(conn, vm);
+						// parse the message
+						this.dt_object.valid_server_message(conn, vm);
+
+					}
 
 				} catch (err) {
 					console.error('error in server with a client authorization', err);
@@ -474,9 +483,12 @@ dt.prototype.connect = function() {
 						// this is an authorized connection
 						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
 
-					}
+					} else {
 
-					this.dt_object.valid_primary_client_message(primary_node, JSON.parse(decrypted));
+						// parse the message
+						this.dt_object.valid_primary_client_message(primary_node, JSON.parse(decrypted));
+
+					}
 
 				} catch (err) {
 					console.error('error in primary client authorization to server', err);
@@ -1185,10 +1197,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 	// that was sent to this server
 	//console.log('valid message to server', j);
 
-	if (j.node_id === this.node_id) {
-		// tell the client that it connected to itself
-		this.server_send(conn, {type: 'is_self', node_id: this.node_id});
-	} else if (j.type === 'test_ping') {
+	if (j.type === 'test_ping') {
 		// respond with test_pong
 		this.server_send(conn, {type: 'test_pong', node_id: this.node_id, ts: j.ts});
 	} else if (j.type === 'ping') {
