@@ -2,6 +2,8 @@ Objects are synchronized across the network using the functions `dt.add_object(o
 
 Messages sent with `dt.send_message(object)` are sent to all nodes on the network that are online when they reach a connected peer.  They are received in the `message_received` event.
 
+IPv4 and IPv6 are supported.
+
 # example
 
 Run 5 nodes, each on a different port on localhost.
@@ -38,7 +40,7 @@ In other words an offline node that has some object that was removed in the dt b
 
 If a segment of nodes goes offline together, when they reconnect to a node that has a path to the master their objects will be synchronized.
 
-A master node does not need to open ports or listen for traffic, it can be a master node behind a firewall.
+A master node does not need to open ports or listen for traffic, it can be a master node behind a firewall or NAT.
 
 # running without a master
 
