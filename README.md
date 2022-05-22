@@ -28,17 +28,7 @@ Copy the example.
 
 After the `started` event there is a `object_added` event for each existing object on the network.
 
-# security
-
-All data is encrypted with XOR using the private key entered on every node.
-
-# firewall
-
-Invalid users making too many attempts are blocked by node-ip-ac
-
-https://github.com/andrewhodel/node-ip-ac
-
-# object integrity
+# master node and object integrity
 
 Only nodes flagged as master can `add_object()` or `remove_object()`.  Any node can `send_message()`.
 
@@ -48,6 +38,18 @@ In other words an offline node that has some object that was removed in the dt b
 
 If a segment of nodes goes offline together, when they reconnect to a node that has a path to the master their objects will be synchronized.
 
+A master node does not need to open ports or listen for traffic, it can be a master node behind a firewall.
+
 # running without a master
 
 No node is required to be a master in a dt network, but the nodes can only send and receive message objects.
+
+# security
+
+All data is encrypted with XOR using the private key entered on every node.
+
+# firewall
+
+Invalid users making too many attempts are blocked by node-ip-ac
+
+https://github.com/andrewhodel/node-ip-ac
