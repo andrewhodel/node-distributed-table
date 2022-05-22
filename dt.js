@@ -182,13 +182,13 @@ var dt = function(config) {
 								this.dt_object.nodes[c] = conn.node
 								updated = true;
 							} else if (this.dt_object.node_connected(n) === true) {
-								// tell this client node that a client connected
+								// tell client nodes that a node connected with a distant_node message
 								this.dt_object.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
 							}
 							c++;
 						}
 
-						// tell the server that a distant_node connected as a client
+						// tell the server node that a node connected with a distant_node message
 						//console.log('sending distant_node to the server');
 						this.dt_object.client_send({type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
 
@@ -197,7 +197,7 @@ var dt = function(config) {
 							this.dt_object.nodes.push(conn.node);
 						}
 
-						// send the nodes as type: distant_node
+						// send the known nodes as type: distant_node
 						// to the client that connected
 						var c = 0;
 						while (c < this.dt_object.nodes.length) {
