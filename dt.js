@@ -452,12 +452,28 @@ dt.prototype.connect = function() {
 			primary_client_send_object_hashes = setInterval(function() {
 
 				// if multiple master nodes exist, they must be synchronized before
-				// allowing the master nodes to send their objects before
-				// they cannot diff because they have no concept of time as they could be thousands of years
-				// between message and response while using a different time zone and not originating from unix time
+				// allowing the master nodes to send their objects
+
+				// they cannot diff because they have no concept of origin time as they could be thousands of years
+				// between message and response while using a different origin time zone and not originating from unix time (random message from unknown source with shared key)
 				//
-				// this is also why remote timestamps are invalid, and there's not enough memory to keep
-				// track of time for every planet according to the known star count
+				// this is also why origin timestamps are not that useful when you have relative locations
+				// no reason to keep the origin time of every ship (or the memory)
+				// no reason to know the origin time of a ship between two planets each with their own origin time
+				// if you have a historical record of their relative locations
+				//
+				// packetized data reception and decoding is slowed by particles
+				// every on/off stream/laser can be overwritten preventing moving the binary stream from packet data to parallel laser beams
+				// because the timing cannot be reputable
+				//
+				// time exists, but you won't know the origin time (universally applicable) until you have the bounds of the universe to measure upon and room to store the locations of each object
+				// you can always use the node-distributed-table fragment routine to figure out part of it though
+				// https://github.com/andrewhodel/node-distributed-table/issues/2
+				//
+				// or maybe everything in the universe will use seconds forever
+
+				// you could modify add_object() to save all the data and be able to diff between master nodes, but then you would turn life into data
+				// by needing more hard drive space
 
 				if (primary_node.object_hashes_received === true || this.dt_object.master === true) {
 					clearInterval(primary_client_send_object_hashes);
