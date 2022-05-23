@@ -470,10 +470,11 @@ dt.prototype.connect = function() {
 				// you can always use the node-distributed-table fragment routine to figure out part of it though
 				// https://github.com/andrewhodel/node-distributed-table/issues/2
 				//
-				// or maybe everything in the universe will use seconds forever
+				// or maybe everything in the universe will use seconds forever, it's still a problem of origin time at large distances
+				// with many devices because of the maintainence nightmare that is upgrading atomic clocks
 
 				// you could modify add_object() to save all the data and be able to diff between master nodes, but then you would turn life into data
-				// by needing more hard drive space
+				// by needing infinite hard drive space, until the bounds of the universe are defined
 
 				if (primary_node.object_hashes_received === true || this.dt_object.master === true) {
 					clearInterval(primary_client_send_object_hashes);
