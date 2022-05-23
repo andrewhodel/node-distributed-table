@@ -24,9 +24,11 @@ Copy the example.
 
 `dt.add_object(object)`, `dt.remove_object(object)` and `dt.send_message(object)`.
 
+`dt.add_object(object)` and `dt.remove_object(object)` can emit an `error` event from `dt.emitter`.
+
 ## events
 
-`'started', function() {}`, `'object_added', function(object) {}`, `'object_removed', function(object) {}` and `'message_received', function(object)` events are created with `dt.emitter.addListener()`.
+`'started', function() {}`, `'object_added', function(object) {}`, `'object_removed', function(object) {}` and `'message_received', function(object)` and `'error', function(error_string, origin, object)` events are created with `dt.emitter.addListener()`.
 
 After the `started` event there is a `object_added` event for each existing object on the network.
 
@@ -34,7 +36,9 @@ After the `started` event there is a `object_added` event for each existing obje
 
 Only nodes flagged as master can `add_object()` or `remove_object()`.  Any node can `send_message()`.
 
-This means that an object_diff will accept changes but not make them on non master nodes.
+Non master nodes will accept changes and relay changes but not be allowed to create changes with `add_object()` or `remove_object()`.
+
+A node processing a diff will modify itself and **shall remove any objects that are not in the diff from itself before forwarding objects**.  This is internally known as a `object_hashes` message.
 
 In other words an offline node that has some object that was removed in the dt by the master shall be removed when the offline node reconnects.  Objects added to the dt by the master while offline shall be added.  Nothing different in the node that was offline will be kept or returned to the dt.
 

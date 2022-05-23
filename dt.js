@@ -1753,6 +1753,11 @@ dt.prototype.send_message = function(j) {
 
 dt.prototype.add_object = function(j) {
 
+	if (this.master !== true) {
+		this.emitter.emit('error', 'dt.add_object', 'dt.add_object() requires this node to be a master node', j);
+		return;
+	}
+
 	// add an object to all the nodes in the network
 
 	// get the hash
@@ -1790,6 +1795,11 @@ dt.prototype.add_object = function(j) {
 }
 
 dt.prototype.remove_object = function(j) {
+
+	if (this.master !== true) {
+		this.emitter.emit('error', 'dt.remove_object', 'dt.remove_object() requires this node to be a master node', j);
+		return;
+	}
 
 	// remove an object from all nodes in the network
 
