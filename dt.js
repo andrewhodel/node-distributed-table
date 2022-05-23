@@ -216,6 +216,10 @@ var dt = function(config) {
 							c++;
 						}
 
+						// the server sends the object hashes to clients regardless of having recieved the object_hashes
+						// because the object_hashes diff routine on the master node(s) will repeatedly create a
+						// remove_object message with the object hash until it is completely removed from the network
+
 						// send object_hashes
 						var o_hashes = [];
 						var n = 0;
@@ -425,7 +429,9 @@ dt.prototype.connect = function() {
 		console.log('\n\n\n\n\n\n\nbest node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'average rtt: ' + this.dt_object.rtt_avg(primary_node.rtt_array));
 
 		// ping the server
-		var ping;
+		var primary_client_ping;
+		var primary_client_send_object_hashes;
+		primary_node.object_hashes_received = false;
 
 		if (this.dt_object.client !== undefined) {
 			this.dt_object.client.destroy();
@@ -441,19 +447,41 @@ dt.prototype.connect = function() {
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
-			// send object_hashes
-			var o_hashes = [];
-			var n = 0;
-			while (n < this.dt_object.objects.length) {
-				// add the sha256 checksum to the array
-				o_hashes.push(this.dt_object.objects[n][0]);
-				n++;
-			}
-			this.dt_object.client_send({type: 'object_hashes', object_hashes: o_hashes});
+			// send once object_hashes is received
+			// a non master node **shall remove any objects that are not in the diff from itself before forwarding objects**
+			primary_client_send_object_hashes = setInterval(function() {
+
+				// if multiple master nodes exist, they must be synchronized before
+				// allowing the master nodes to send their objects before
+				// they cannot diff because they have no concept of time as they could be thousands of years
+				// between message and response while using a different time zone and not originating from unix time
+				//
+				// this is also why remote timestamps are invalid, and there's not enough memory to keep
+				// track of time for every planet according to the known star count
+
+				if (primary_node.object_hashes_received === true || this.dt_object.master === true) {
+					clearInterval(primary_client_send_object_hashes);
+				} else {
+					// non master nodes shall wait until the object hashes are received
+					console.log('primary client waiting to send object_hashes to server until recieved');
+					return;
+				}
+
+				// send object_hashes
+				var o_hashes = [];
+				var n = 0;
+				while (n < this.dt_object.objects.length) {
+					// add the sha256 checksum to the array
+					o_hashes.push(this.dt_object.objects[n][0]);
+					n++;
+				}
+				this.dt_object.client_send({type: 'object_hashes', object_hashes: o_hashes});
+
+			}.bind({dt_object: this.dt_object}), 200);
 
 			// ping the server
 			// and send the previous rtt
-			ping = setInterval(function() {
+			primary_client_ping = setInterval(function() {
 
 				this.dt_object.client_send({type: 'ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: primary_node.rtt});
 
@@ -552,7 +580,8 @@ dt.prototype.connect = function() {
 		this.dt_object.client.on('end', function() {
 
 			// stop pinging
-			clearInterval(ping);
+			clearInterval(primary_client_ping);
+			clearInterval(primary_client_send_object_hashes);
 
 			primary_node.connected_as_primary = false;
 
@@ -1324,6 +1353,42 @@ dt.prototype.valid_server_message = function(conn, j) {
 			c++;
 		}
 
+	} else if (j.type === 'remove_object') {
+
+		// the client node wants an object removed
+
+		// get the hash
+		var sha256_hash = j.object_hash;
+
+		// remove the local copy
+		var c = 0;
+		while (c < this.objects.length) {
+			var obj = this.objects[c];
+			if (obj[0] === sha256_hash) {
+				this.emitter.emit('object_removed', obj[1]);
+				this.objects.splice(c, 1);
+				break;
+			}
+			c++;
+		}
+
+		//console.log('client sent remove_object to this node', sha256_hash);
+
+		// send the hash to the server
+		this.client_send({type: 'remove_object', object_hash: sha256_hash});
+
+		// send the hash to all the clients
+		var c = 0;
+		while (c < this.nodes.length) {
+			var n = this.nodes[c];
+			if (n.connected_as_primary === true) {
+				// the primary client is connected to a server
+			} else if (this.node_connected(n) === true) {
+				this.server_send(n.conn, {type: 'remove_object', object_hash: sha256_hash});
+			}
+			c++;
+		}
+
 	} else if (j.type === 'add_object') {
 
 		// the client node sent an object
@@ -1543,6 +1608,39 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 			c++;
 		}
 
+	} else if (j.type === 'remove_object') {
+
+		// the server node wants an object removed
+
+		// get the hash
+		var sha256_hash = j.object_hash;
+
+		// remove the local copy
+		var c = 0;
+		while (c < this.objects.length) {
+			var obj = this.objects[c];
+			if (obj[0] === sha256_hash) {
+				this.emitter.emit('object_removed', obj[1]);
+				this.objects.splice(c, 1);
+				break;
+			}
+			c++;
+		}
+
+		//console.log('client sent remove_object to this node', sha256_hash);
+
+		// send the hash to all the clients
+		var c = 0;
+		while (c < this.nodes.length) {
+			var n = this.nodes[c];
+			if (n.connected_as_primary === true) {
+				// the primary client is connected to a server
+			} else if (this.node_connected(n) === true) {
+				this.server_send(n.conn, {type: 'remove_object', object_hash: sha256_hash});
+			}
+			c++;
+		}
+
 	} else if (j.type === 'add_object') {
 
 		// the server node sent an object
@@ -1626,6 +1724,9 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 			l++;
 		}
 
+		// flag object_hashes_received as true
+		primary_node.object_hashes_received = true;
+
 	}
 
 }
@@ -1694,8 +1795,14 @@ dt.prototype.compare_object_hashes_to_objects = function(object_hashes) {
 			}
 
 			if (found === false) {
-				// add missing hash
-				missing_in_objects.push(hash);
+				if (this.master === true) {
+					// this node is a master node, it should send remove_object(hash) to the dt
+					this.remove_object(hash);
+				} else {
+					// this node is a non master node, it should add the missing object
+					// add missing hash
+					missing_in_objects.push(hash);
+				}
 			}
 
 			l++;
@@ -1800,14 +1907,53 @@ dt.prototype.add_object = function(j) {
 
 }
 
-dt.prototype.remove_object = function(j) {
+dt.prototype.remove_object = function(h) {
 
 	if (this.master !== true) {
-		this.emitter.emit('error', 'dt.remove_object', 'dt.remove_object() requires this node to be a master node', j);
+		this.emitter.emit('error', 'dt.remove_object', 'dt.remove_object() requires this node to be a master node', h);
 		return;
 	}
 
 	// remove an object from all nodes in the network
+
+	var hash_string = '';
+	if (typeof(h) === 'string') {
+		// remove by hash string
+		hash_string = h;
+	} else {
+
+		// get the hash
+		var sha256_hash = this.object_sha256_hash(h);
+
+		// remove the local copy
+		var c = 0;
+		while (c < this.objects.length) {
+			var obj = this.objects[c];
+			if (obj[0] === sha256_hash) {
+				this.objects.splice(c, 1);
+				break;
+			}
+			c++;
+		}
+
+		hash_string = sha256_hash;
+
+	}
+
+	// send the hash to the server
+	this.client_send({type: 'remove_object', object_hash: hash_string});
+
+	// send the hash to all the clients
+	var c = 0;
+	while (c < this.nodes.length) {
+		var n = this.nodes[c];
+		if (n.connected_as_primary === true) {
+			// the primary client is connected to a server
+		} else if (this.node_connected(n) === true) {
+			this.server_send(n.conn, {type: 'remove_object', object_hash: hash_string});
+		}
+		c++;
+	}
 
 }
 
