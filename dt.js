@@ -664,7 +664,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	// distant node ping
 	var ping;
-	var recieved_pings = 0;
+	var received_pings = 0;
 
 	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
 		// 'connect' listener.
@@ -726,8 +726,8 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 						node.rtt_array.shift();
 					}
 
-					recieved_pings++;
-					if (recieved_pings >= this.dt_object.max_ping_count) {
+					received_pings++;
+					if (received_pings >= this.dt_object.max_ping_count) {
 						// test success at dt.max_ping_count pings
 						client.end();
 						node.test_status = 'success';
@@ -1301,7 +1301,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		}
 
 		//console.log('client sent a message to this node', j);
-		this.emitter.emit('message_recieved', j.message);
+		this.emitter.emit('message_received', j.message);
 
 		// add the message_id
 		this.message_ids.push([j.message_id, Date.now()]);
@@ -1526,7 +1526,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 		}
 
 		//console.log('server sent a message to this node', j);
-		this.emitter.emit('message_recieved', j.message);
+		this.emitter.emit('message_received', j.message);
 
 		// add the message_id
 		this.message_ids.push([j.message_id, Date.now()]);
@@ -1639,9 +1639,8 @@ dt.prototype.compare_object_hashes_to_objects = function(object_hashes) {
 	var missing_in_objects = [];
 
 	// test each object in dt.objects for existance in object_hashes
-	// problem is 0
-	var c = 0;
-	while (c < this.objects.length) {
+	var c = this.objects.length-1;
+	while (c >= 0) {
 
 		var object = this.objects[c];
 		var found = false;
@@ -1657,15 +1656,22 @@ dt.prototype.compare_object_hashes_to_objects = function(object_hashes) {
 		}
 
 		if (found === false) {
-			// add missing object
-			missing_in_hashes.push(object);
+			if (this.master === true) {
+				// this node is a master node, it should send it's objects
+				// add missing object
+				missing_in_hashes.push(object);
+			} else {
+				// this node is a non master node, it should remove the objects that are not in the received object_hashes
+				// non master nodes **shall remove any objects that are not in the diff from itself before forwarding objects**
+				this.objects.splice(c, 1);
+			}
 		}
 
-		c++;
+		c--;
 
 	}
 
-	if (c === 0) {
+	if (this.objects.length === 0) {
 		// all hashes are missing in dt.objects
 		missing_in_objects = object_hashes;
 	} else {

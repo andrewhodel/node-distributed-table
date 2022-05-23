@@ -21,8 +21,8 @@ dt_node.emitter.addListener('object_removed', function(object) {
 
 });
 
-dt_node.emitter.addListener('message_recieved', function(m) {
+dt_node.emitter.addListener('message_received', function(m) {
 
-	console.log('dt message_recieved event', m);
+	console.log('dt message_received event', m);
 
 });
