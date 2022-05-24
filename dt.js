@@ -736,7 +736,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
 		// 'connect' listener.
-		console.log('connected to node to test latency', node.ip, node.port);
+		console.log('test_node() connected', node.ip, node.port);
 
 		this.dt_object.active_test_count++;
 
@@ -820,7 +820,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 						node.test_failures = 0;
 						node.last_test_success = Date.now();
 
-						console.log('node test success, avg rtt', this.dt_object.rtt_avg(node.rtt_array));
+						console.log('test_node() success, avg rtt', this.dt_object.rtt_avg(node.rtt_array));
 
 						if (is_distant_node === true) {
 
@@ -873,7 +873,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 				}
 
 			} catch (err) {
-				console.error('error with node test', err);
+				console.error('error with test_node()', err);
 				client.end();
 				node.test_status = 'failed';
 				node.test_failures++;
@@ -935,13 +935,13 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		clearInterval(ping);
 		this.dt_object.active_test_count--;
 
-		console.log('disconnected from node in node test', node.ip, node.port, node.node_id);
+		console.log('disconnected from node in test_node()', node.ip, node.port, node.node_id);
 
 	}.bind({dt_object: this}));
 
 	client.on('timeout', function() {
 
-		console.error('timeout connecting to node in node test', node.ip, node.port, node.node_id);
+		console.error('timeout connecting to node in test_node()', node.ip, node.port, node.node_id);
 		node.test_status = 'failed';
 		node.test_failures++;
 
@@ -949,7 +949,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	client.on('error', function(err) {
 
-		console.error('error connecting to node in node test', node.ip, node.port, node.node_id, err.toString());
+		console.error('error connecting to node in test_node()', node.ip, node.port, node.node_id, err.toString());
 		node.test_status = 'failed';
 		node.test_failures++;
 
@@ -1026,7 +1026,8 @@ dt.prototype.clean = function() {
 
 					if (found === false) {
 						// the non connected node is not in the fragment_list
-						console.log('non connected node is not in the fragment_list, starting defragment routine', n.ip, n.port);
+						// start the defragment routine
+						this.dt_object.defragment_node(n);
 						break;
 					}
 
@@ -1246,7 +1247,7 @@ dt.prototype.server_send = function(conn, j) {
 
 }
 
-dt.prototype.client_send = function(j, test_client=null) {
+dt.prototype.client_send = function(j, non_primary_client=null) {
 
 	// send to a server
 	// as the client
@@ -1264,10 +1265,10 @@ dt.prototype.client_send = function(j, test_client=null) {
 
 	b = Buffer.concat([b, jsb]);
 
-	if (test_client !== null) {
-		// this is to a distant node
-		//console.log('distant node client write', b.length, JSON.stringify(j));
-		test_client.write(b);
+	if (non_primary_client !== null) {
+		// to be sent via the non primary client
+		//console.log('non primary client write', b.length, JSON.stringify(j));
+		non_primary_client.write(b);
 	} else if (this.client) {
 		// send as the primary client
 		//console.log('primary client write', b.length, JSON.stringify(j));
@@ -1340,7 +1341,22 @@ dt.prototype.valid_server_message = function(conn, j) {
 	// that was sent to this server
 	//console.log('valid message to server', j);
 
-	if (j.type === 'connected_nodes') {
+	if (j.type === 'defragment') {
+
+		// compare j.fragment_list_length and the count of this node's fragment_list
+		if (j.fragment_list_length >= this.fragment_list.length) {
+			// this node has a smaller fragment list and should reconnect to the node that sent the defragment message
+			// defragment_reconnect() to the node
+			this.defragment_reconnect({ip: this.clean_remote_address(this.client.remoteAddress), port: j.port, node_id: j.node_id});
+		} else {
+			// the sending node has a smaller fragment list and should reconnect
+			this.server_send(conn, {type: 'defragment_greater_count'});
+		}
+
+		// only one valid_server message with or without response is in the defragment routine
+		conn.end();
+
+	} if (j.type === 'connected_nodes') {
 
 		// update dt.fragment_list
 		// each node in j.connected_nodes must be in dt.fragment_list with a current timestamp
@@ -2095,6 +2111,134 @@ dt.prototype.remove_object = function(h) {
 		}
 		c++;
 	}
+
+}
+
+dt.prototype.defragment_reconnect = function(node) {
+
+	console.log('defragmentation requires a primary client reconnect to a non connected node');
+
+	// send a distant_node message via the existing primary client
+	// if it exists
+	if (this.primary_node !== undefined) {
+		this.dt_object.client_send({type: 'distant_node', ip: node.ip, port: node.port, node_id: node.node_id});
+	}
+
+	console.log('reconnecting primary client to', node);
+
+}
+
+dt.prototype.defragment_node = function(node) {
+
+	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
+		// 'connect' listener.
+		console.log('defragment_node() connected', node.ip, node.port);
+
+		// send the defragment message with dt.port and fragment_list_length
+		this.dt_object.client_send({type: 'defragment', fragment_list_length: this.dt_object.fragment_list.length, port: this.dt_object.port, node_id: this.dt_object.node_id}, client);
+
+	}.bind({dt_object: this}));
+
+	// set client timeout of the socket
+	client.setTimeout(this.timeout);
+
+	var data = Buffer.alloc(0);
+	var data_len = 0;
+
+	var test_all_data = function() {
+
+		//console.log('test client read test_all_data()', data_len, data.length);
+		if (data_len <= data.length) {
+
+			// decrypt the data_len
+			var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
+			//console.log('test client decrypted read', decrypted.length, decrypted.toString());
+
+			try {
+				// decrypted is a valid message
+				var j = JSON.parse(decrypted);
+
+				if (j.type === 'defragment_greater_count') {
+
+					// defragment_reconnect() to the node
+					this.dt_object.defragment_reconnect(node);
+
+					client.end();
+
+				}
+
+			} catch (err) {
+				console.error('error with defragment_node()', err);
+				node.test_failures++;
+			}
+
+			// reset data
+			data = data.subarray(data_len, data.length);
+			//console.log('new data.length', data.length);
+
+			if (data.length > 0) {
+				// get length
+				data_len = data.readUInt32BE(0);
+				data = data.subarray(4);
+				test_all_data();
+			} else {
+				// no new data
+				// reset data_len
+				data_len = 0;
+			}
+
+			return;
+
+		}
+
+		// there was not enough data
+		return;
+
+	}.bind({dt_object: this});
+
+	client.on('data', function(chunk) {
+
+		if (data_len === 0) {
+			// first chunk
+
+			// read length
+			data_len = chunk.readUInt32BE(0);
+
+			//console.log('first chunk, data length', data_len);
+
+			// add to data without length
+			data = Buffer.concat([data, chunk.subarray(4)]);
+
+			test_all_data();
+
+		} else {
+
+			// continue to read through data_len
+			data = Buffer.concat([data, chunk]);
+
+			test_all_data();
+
+		}
+
+	});
+
+	client.on('end', function() {
+
+		console.log('disconnected from node in defragment_node()', node.ip, node.port, node.node_id);
+
+	}.bind({dt_object: this}));
+
+	client.on('timeout', function() {
+
+		console.error('timeout connecting to node in defragment_node()', node.ip, node.port, node.node_id);
+
+	}.bind({dt_object: this}));
+
+	client.on('error', function(err) {
+
+		console.error('error connecting to node in defragment_node()', node.ip, node.port, node.node_id, err.toString());
+
+	}.bind({dt_object: this}));
 
 }
 
