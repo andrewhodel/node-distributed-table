@@ -82,7 +82,7 @@ var dt = function(config) {
 	this.max_ping_count = 20;
 	this.clean_interval = 5000;
 	// if there is a better node to use as the primary, wait this long before disconnecting the existing primary client
-	this.better_primary_switch_wait = 1000 * 60 * 20;
+	this.better_primary_wait = 1000 * 60 * 20;
 	// a node with a latency lower than this * the primary node latency avg is classified as better
 	this.better_primary_latency_multiplier = .7;
 	// wait this long before purging nodes that are
@@ -1132,10 +1132,10 @@ dt.prototype.clean = function() {
 
 			// to ensure direct connectivity to the node with the lowest latency
 			// examine node rtt times and disconnect to force a new connection to the node with the lowest latency if
-			//	primary_connection_start of primary_node is > dt.better_primary_switch_wait
+			//	primary_connection_start of primary_node is > dt.better_primary_wait
 			//	a nodes avg rtt is .7 (dt.better_primary_latency_multiplier) or less of primary node
 
-			if (Date.now() - primary_node.primary_connection_start > this.dt_object.better_primary_switch_wait) {
+			if (Date.now() - primary_node.primary_connection_start > this.dt_object.better_primary_wait) {
 
 				var dc = false;
 				var r = 0;
