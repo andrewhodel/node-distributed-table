@@ -75,6 +75,7 @@ var dt = function(config) {
 	this.distant_nodes = [];
 	this.objects = [];
 	this.message_ids = [];
+	this.fragment_list = [];
 
 	// advanced/non configurable options
 	this.max_test_failures = 5;
@@ -447,6 +448,22 @@ dt.prototype.connect = function() {
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
+			// send the connected nodes
+			var cn = [];
+
+			var c = 0;
+			while (c < this.dt_object.nodes.length) {
+				var n = this.dt_object.nodes[c];
+				if (n.connected_as_primary === true) {
+					// the primary client is connected to a server
+				} else if (this.dt_object.node_connected(n) === true) {
+					cn.push({ip: n.ip, port: n.port});
+				}
+				c++;
+			}
+
+			this.dt_object.client_send({type: 'connected_nodes', node_id: this.dt_object.node_id, connected_nodes: cn});
+
 			// send once object_hashes is received
 			// a non master node **shall remove any objects that are not in the diff from itself before forwarding objects**
 			primary_client_send_object_hashes = setInterval(function() {
@@ -715,6 +732,22 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
 		// 'connect' listener.
 		console.log('connected to node to test latency', node.ip, node.port);
+
+		// send the connected nodes
+		var cn = [];
+
+		var c = 0;
+		while (c < this.dt_object.nodes.length) {
+			var n = this.dt_object.nodes[c];
+			if (n.connected_as_primary === true) {
+				// the primary client is connected to a server
+			} else if (this.dt_object.node_connected(n) === true) {
+				cn.push({ip: n.ip, port: n.port});
+			}
+			c++;
+		}
+
+		this.dt_object.client_send({type: 'connected_nodes', node_id: this.dt_object.node_id, connected_nodes: cn}, client);
 
 		// ping the server
 		// and send the previous rtt
@@ -1153,7 +1186,7 @@ dt.prototype.server_send = function(conn, j) {
 
 }
 
-dt.prototype.client_send = function(j, distant_node_client=null) {
+dt.prototype.client_send = function(j, test_client=null) {
 
 	// send to a server
 	// as the client
@@ -1171,10 +1204,10 @@ dt.prototype.client_send = function(j, distant_node_client=null) {
 
 	b = Buffer.concat([b, jsb]);
 
-	if (distant_node_client !== null) {
+	if (test_client !== null) {
 		// this is to a distant node
 		//console.log('distant node client write', b.length, JSON.stringify(j));
-		distant_node_client.write(b);
+		test_client.write(b);
 	} else if (this.client) {
 		// send as the primary client
 		//console.log('primary client write', b.length, JSON.stringify(j));
@@ -1247,7 +1280,38 @@ dt.prototype.valid_server_message = function(conn, j) {
 	// that was sent to this server
 	//console.log('valid message to server', j);
 
-	if (j.type === 'test_ping') {
+	if (j.type === 'connected_nodes') {
+
+		// update dt.fragment_list
+		// each node in j.connected_nodes must be in dt.fragment_list with a current timestamp
+
+		var c = 0;
+		while (c < j.connected_nodes.length) {
+			var cn = j.connected_nodes[c];
+
+			var cn_found = false;
+
+			var l = 0;
+			while (l < this.fragment_list.length) {
+				var fn = this.fragment_list[l];
+				if (fn.ip === cn.ip && fn.port === cn.port) {
+					// update the timestamp
+					this.fragment_list[l].ts = Date.now();
+					cn_found = true;
+					break;
+				}
+				l++;
+			}
+
+			if (cn_found === false) {
+				// add to fragment_list
+				cn.ts = Date.now();
+				this.fragment_list.push(cn);
+			}
+			c++;
+		}
+
+	} else if (j.type === 'test_ping') {
 		// respond with test_pong
 		this.server_send(conn, {type: 'test_pong', node_id: this.node_id, ts: j.ts});
 	} else if (j.type === 'ping') {
