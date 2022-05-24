@@ -83,7 +83,7 @@ var dt = function(config) {
 	this.clean_interval = 5000;
 	// if there is a better node to use as the primary, wait this long before disconnecting the existing primary client
 	this.better_primary_switch_wait = 1000 * 60 * 20;
-	// a node with a latency lower than this * the primary node latency avg will cause a primary client reconnect
+	// a node with a latency lower than this * the primary node latency avg is classified as better
 	this.better_primary_latency_multiplier = .7;
 	// wait this long before purging nodes that are
 	// 1. unreachable
