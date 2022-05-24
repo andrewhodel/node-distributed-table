@@ -999,6 +999,9 @@ dt.prototype.clean = function() {
 		if (this.dt_object.active_test_count === 0) {
 
 			// ensure that all non connected nodes exist in the fragment list
+			var non_connected_node_not_in_fragment_list = null;
+
+			// first test in nodes
 			var c = 0;
 			while (c < this.dt_object.nodes.length) {
 				var n = this.dt_object.nodes[c];
@@ -1025,15 +1028,59 @@ dt.prototype.clean = function() {
 					}
 
 					if (found === false) {
-						// the non connected node is not in the fragment_list
-						// start the defragment routine
-						this.dt_object.defragment_node(n);
+						non_connected_node_not_in_fragment_list = n;
 						break;
 					}
 
 				}
 
 				c++;
+			}
+
+			if (non_connected_node_not_in_fragment_list !== null) {
+
+				// then test in distant nodes if not found in nodes
+				var c = 0;
+				while (c < this.dt_object.distant_nodes.length) {
+					var n = this.dt_object.distant_nodes[c];
+
+					if (n.is_self === true) {
+						// self does not need to be tested as a fragmented node
+					} else if (this.dt_object.node_connected(n) === false) {
+						// this is a non connected node, make sure it is in the fragment list
+						// nodes in the fragment list are connected to a node that is distant
+						// this ensures that a node or segment of nodes is not fragmented
+						// by sending the non connected node a `defragment` message and starting that routine
+
+						var found = false;
+						var l = 0;
+						while (l < this.dt_object.fragment_list.length) {
+
+							var fn = this.dt_object.fragment_list[l];
+
+							if (fn.ip === n.ip && fn.port === n.port) {
+								found = true;
+								break;
+							}
+							l++;
+						}
+
+						if (found === false) {
+							non_connected_node_not_in_fragment_list = n;
+							break;
+						}
+
+					}
+
+					c++;
+				}
+
+			}
+
+			if (non_connected_node_not_in_fragment_list !== null) {
+				// the non connected node is not in the fragment_list
+				// start the defragment routine
+				this.dt_object.defragment_node(non_connected_node_not_in_fragment_list);
 			}
 
 		}
