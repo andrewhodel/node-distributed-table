@@ -995,7 +995,7 @@ dt.prototype.clean = function() {
 			console.log('primary client is not connected');
 		}
 		console.log('node objects', this.dt_object.objects.length);
-		console.log('fragment_list', this.dt_object.fragment_list.length, this.dt_object.fragment_list);
+		console.log('fragment_list', this.dt_object.fragment_list.length);
 		console.log('non expired message_ids', this.dt_object.message_ids.length);
 		console.log('active test count', this.dt_object.active_test_count);
 
@@ -2192,7 +2192,7 @@ dt.prototype.defragment_reconnect = function(node) {
 		this.dt_object.client_send({type: 'distant_node', ip: node.ip, port: node.port, node_id: node.node_id});
 	}
 
-	console.log('reconnecting primary client to', node);
+	console.log('reconnecting primary client to', node.ip, node.port);
 
 	// set node.force_connect to true
 	node.force_connect = true;
