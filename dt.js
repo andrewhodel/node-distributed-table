@@ -453,20 +453,6 @@ dt.prototype.connect = function() {
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
-			// send the connected nodes
-			var cn = [];
-
-			var c = 0;
-			while (c < this.dt_object.nodes.length) {
-				var n = this.dt_object.nodes[c];
-				if (n.connected_as_primary === true) {
-					// the primary client is connected to a server
-				} else if (this.dt_object.node_connected(n) === true) {
-					cn.push({ip: n.ip, port: n.port});
-				}
-				c++;
-			}
-
 			// send once object_hashes is received
 			// a non master node **shall remove any objects that are not in the diff from itself before forwarding objects**
 			primary_client_send_object_hashes = setInterval(function() {
@@ -553,7 +539,19 @@ dt.prototype.connect = function() {
 						// this is an authorized connection
 						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
 
-						// send connected_nodes
+						// send the connected nodes
+						var cn = [];
+
+						var c = 0;
+						while (c < this.dt_object.nodes.length) {
+							var n = this.dt_object.nodes[c];
+							if (n.connected_as_primary === true) {
+								// the primary client is connected to a server
+							} else if (this.dt_object.node_connected(n) === true) {
+								cn.push({ip: n.ip, port: n.port, node_id: n.node_id});
+							}
+							c++;
+						}
 						this.dt_object.client_send({type: 'connected_nodes', node_id: this.dt_object.node_id, connected_nodes: cn});
 
 					} else {
@@ -751,7 +749,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 			if (n.connected_as_primary === true) {
 				// the primary client is connected to a server
 			} else if (this.dt_object.node_connected(n) === true) {
-				cn.push({ip: n.ip, port: n.port});
+				cn.push({ip: n.ip, port: n.port, node_id: n.node_id});
 			}
 			c++;
 		}
@@ -1413,6 +1411,13 @@ dt.prototype.valid_server_message = function(conn, j) {
 		var c = 0;
 		while (c < j.connected_nodes.length) {
 			var cn = j.connected_nodes[c];
+
+			if (cn.node_id === this.node_id) {
+				// it is likely that another node will send this one as a connected node
+				// the fragment_list should not contain this node (itself)
+				c++;
+				continue;
+			}
 
 			var cn_found = false;
 
