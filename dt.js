@@ -734,7 +734,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 	var ping;
 	var received_pings = 0;
 
-	var client = net.connect({port: node.port, host: node.ip}, function() {
+	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
 		// 'connect' listener.
 		console.log('connected to node to test latency', node.ip, node.port);
 
