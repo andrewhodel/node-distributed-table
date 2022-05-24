@@ -85,14 +85,14 @@ var dt = function(config) {
 	this.better_primary_switch_wait = 1000 * 60 * 20;
 	// a node with a latency lower than this * the primary node latency avg will cause a primary client reconnect
 	this.better_primary_latency_multiplier = .7;
-	// wait this long before purging an unreachable node
-	this.purge_node_unreachable_wait = 1000 * 60 * 60;
+	// wait this long before purging nodes that are
+	// 1. unreachable
+	// 2. not updated in the fragment list
+	this.purge_node_wait = 1000 * 60 * 60;
 	// retest after a successful test at this interval
 	this.retest_wait_period = 1000 * 60 * 10;
 	// do not allow messages with a duplicate message_id more than this often
 	this.message_duplicate_expire = 1000 * 60 * 5;
-	// expire nodes in the fragment list after
-	this.fragment_list_expire_wait = 1000 * 60 * 60 * 24;
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -975,15 +975,15 @@ dt.prototype.clean = function() {
 			console.log('primary client is not connected');
 		}
 		console.log('node objects', this.dt_object.objects.length);
-		console.log('fragment_list length', this.dt_object.fragment_list.length);
+		console.log('fragment_list', this.dt_object.fragment_list.length, this.dt_object.fragment_list);
 		console.log('non expired message_ids', this.dt_object.message_ids.length);
 
-		// expire fragment_list nodes older than fragment_list_expire_wait
+		// expire fragment_list nodes with an update timestamp beyond now + purge_node_wait
 		var v = this.dt_object.fragment_list.length-1;
 		while (v >= 0) {
 			var fn = this.dt_object.fragment_list[v];
 
-			if (Date.now() - fn[1] > this.dt_object.fragment_list_expire_wait) {
+			if (Date.now() - fn[1] > this.dt_object.purge_node_wait) {
 				this.dt_object.fragment_list.splice(v, 1);
 			}
 			v--;
@@ -1018,8 +1018,8 @@ dt.prototype.clean = function() {
 
 			if (n.last_test_success !== undefined) {
 
-				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
-				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
+				// remove any node that has not had a last_test_success in dt.purge_node_wait
+				if (Date.now() - n.last_test_success > this.dt_object.purge_node_wait) {
 					this.dt_object.distant_nodes.splice(c, 1);
 					c--;
 					continue;
@@ -1076,8 +1076,8 @@ dt.prototype.clean = function() {
 			// the node that is connected with the primary client is also not subject to unreachable
 			if (n.last_test_success !== undefined && n.origin_type !== 'initial' && n.connected_as_primary !== true) {
 
-				// remove any node that has not had a last_test_success in dt.purge_node_unreachable_wait
-				if (Date.now() - n.last_test_success > this.dt_object.purge_node_unreachable_wait) {
+				// remove any node that has not had a last_test_success in dt.purge_node_wait
+				if (Date.now() - n.last_test_success > this.dt_object.purge_node_wait) {
 					this.dt_object.nodes.splice(l, 1);
 					l--;
 					continue;
