@@ -354,11 +354,21 @@ dt.prototype.connect = function() {
 		var lowest_primary_connection_failures = -1;
 		var primary_node = {};
 		var lowest_avg_rtt = -1;
+		var forced_connect = false;
 
 		var c = 0;
 		while (c < this.dt_object.nodes.length) {
 
 			var n = this.dt_object.nodes[c];
+
+			if (n.force_connect === true) {
+				// force connect to this node
+				primary_node = n;
+				// only force the connection once
+				n.force_connect = false;
+				forced_connect = true;
+				break;
+			}
 
 			var n_avg = this.dt_object.rtt_avg(n.rtt_array);
 
@@ -392,34 +402,38 @@ dt.prototype.connect = function() {
 
 		}
 
-		// primary_node has the lowest primary_connection_failures
-		// test the nodes that equal the primary_connection_failures count
-		// and choose the one with the lowest avg rtt
-		// this ensures that the primary connection is stable and has a low round trip time
-		var r = 0;
-		while (r < this.dt_object.nodes.length) {
-			var n = this.dt_object.nodes[r];
+		if (forced_connect === false) {
 
-			var n_avg = this.dt_object.rtt_avg(n.rtt_array);
+			// primary_node has the lowest primary_connection_failures
+			// test the nodes that equal the primary_connection_failures count
+			// and choose the one with the lowest avg rtt
+			// this ensures that the primary connection is stable and has a low round trip time
+			var r = 0;
+			while (r < this.dt_object.nodes.length) {
+				var n = this.dt_object.nodes[r];
 
-			console.log('test primary node against average rtt', n.node_id, n.ip, n.port, n_avg);
+				var n_avg = this.dt_object.rtt_avg(n.rtt_array);
 
-			if (n.is_self === true) {
-				// skip self nodes
-			} else if (isNaN(n_avg)) {
-				// skip nodes with no average rtt
-				console.log('\tskipped with no average rtt');
-			} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
-				// skip nodes that have more primary_connection failures
-				console.log('\tskipped per more primary_connection_failures than lowest');
-			} else if (n_avg < lowest_avg_rtt) {
-				// there is a node with better latency
-				primary_node = n;
-				lowest_avg_rtt = n_avg;
+				console.log('test primary node against average rtt', n.node_id, n.ip, n.port, n_avg);
 
-				console.log('better primary node selection against average rtt', n.node_id);
+				if (n.is_self === true) {
+					// skip self nodes
+				} else if (isNaN(n_avg)) {
+					// skip nodes with no average rtt
+					console.log('\tskipped with no average rtt');
+				} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
+					// skip nodes that have more primary_connection failures
+					console.log('\tskipped per more primary_connection_failures than lowest');
+				} else if (n_avg < lowest_avg_rtt) {
+					// there is a node with better latency
+					primary_node = n;
+					lowest_avg_rtt = n_avg;
+
+					console.log('better primary node selection against average rtt', n.node_id);
+				}
+				r++;
 			}
-			r++;
+
 		}
 
 		if (Object.keys(primary_node).length === 0) {
@@ -2179,6 +2193,14 @@ dt.prototype.defragment_reconnect = function(node) {
 	}
 
 	console.log('reconnecting primary client to', node);
+
+	// set node.force_connect to true
+	node.force_connect = true;
+
+	if (this.client !== undefined) {
+		// disconnect the primary client
+		this.client.end();
+	}
 
 }
 
