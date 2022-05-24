@@ -77,6 +77,9 @@ var dt = function(config) {
 	this.message_ids = [];
 	this.fragment_list = [];
 
+	// counters
+	this.active_test_count = 0;
+
 	// advanced/non configurable options
 	this.max_test_failures = 5;
 	this.max_ping_count = 20;
@@ -731,9 +734,11 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 	var ping;
 	var received_pings = 0;
 
-	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
+	var client = net.connect({port: node.port, host: node.ip}, function() {
 		// 'connect' listener.
 		console.log('connected to node to test latency', node.ip, node.port);
+
+		this.dt_object.active_test_count++;
 
 		// send the connected nodes
 		var cn = [];
@@ -928,10 +933,11 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 		// stop pinging
 		clearInterval(ping);
+		this.dt_object.active_test_count--;
 
 		console.log('disconnected from node in node test', node.ip, node.port, node.node_id);
 
-	});
+	}.bind({dt_object: this}));
 
 	client.on('timeout', function() {
 
@@ -939,7 +945,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		node.test_status = 'failed';
 		node.test_failures++;
 
-	});
+	}.bind({dt_object: this}));
 
 	client.on('error', function(err) {
 
@@ -947,7 +953,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		node.test_status = 'failed';
 		node.test_failures++;
 
-	});
+	}.bind({dt_object: this}));
 
 }
 
@@ -977,16 +983,58 @@ dt.prototype.clean = function() {
 		console.log('node objects', this.dt_object.objects.length);
 		console.log('fragment_list', this.dt_object.fragment_list.length, this.dt_object.fragment_list);
 		console.log('non expired message_ids', this.dt_object.message_ids.length);
+		console.log('active test count', this.dt_object.active_test_count);
 
-		// expire fragment_list nodes with an update timestamp beyond now + purge_node_wait
 		var v = this.dt_object.fragment_list.length-1;
 		while (v >= 0) {
 			var fn = this.dt_object.fragment_list[v];
 
 			if (Date.now() - fn[1] > this.dt_object.purge_node_wait) {
+				// expire fragment_list nodes with an update timestamp beyond now + purge_node_wait
 				this.dt_object.fragment_list.splice(v, 1);
 			}
 			v--;
+		}
+
+		if (this.dt_object.active_test_count === 0) {
+
+			// ensure that all non connected nodes exist in the fragment list
+			var c = 0;
+			while (c < this.dt_object.nodes.length) {
+				var n = this.dt_object.nodes[c];
+
+				if (n.is_self === true) {
+					// self does not need to be tested as a fragmented node
+				} else if (this.dt_object.node_connected(n) === false) {
+					// this is a non connected node, make sure it is in the fragment list
+					// nodes in the fragment list are connected to a node that is distant
+					// this ensures that a node or segment of nodes is not fragmented
+					// by sending the non connected node a `defragment` message and starting that routine
+
+					var found = false;
+					var l = 0;
+					while (l < this.dt_object.fragment_list.length) {
+
+						var fn = this.dt_object.fragment_list[l];
+
+						if (fn.ip === n.ip && fn.port === n.port) {
+							found = true;
+							break;
+						}
+						l++;
+					}
+
+					if (found === false) {
+						// the non connected node is not in the fragment_list
+						console.log('non connected node is not in the fragment_list, starting defragment routine', n.ip, n.port);
+						break;
+					}
+
+				}
+
+				c++;
+			}
+
 		}
 
 		var v = this.dt_object.message_ids.length-1;
@@ -1125,10 +1173,8 @@ dt.prototype.clean = function() {
 			l--;
 		}
 
-		// dt.connect() automatically reconnects if not connected
-		if (primary_node !== null) {
-
-			// primary node is connected
+		if (primary_node !== null && this.dt_object.active_test_count === 0) {
+			// the primary client is connected and there are no active tests
 
 			// to ensure direct connectivity to the node with the lowest latency
 			// examine node rtt times and disconnect to force a new connection to the node with the lowest latency if
