@@ -467,8 +467,6 @@ dt.prototype.connect = function() {
 				c++;
 			}
 
-			this.dt_object.client_send({type: 'connected_nodes', node_id: this.dt_object.node_id, connected_nodes: cn});
-
 			// send once object_hashes is received
 			// a non master node **shall remove any objects that are not in the diff from itself before forwarding objects**
 			primary_client_send_object_hashes = setInterval(function() {
@@ -548,11 +546,15 @@ dt.prototype.connect = function() {
 					// decrypted is a valid message
 					var vm = JSON.parse(decrypted);
 
-					// type open is the first message
+					// type: 'open' is the response to the sent type: 'open' message
+					// when there is a valid connection
 					if (vm.type === 'open') {
 
 						// this is an authorized connection
 						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
+
+						// send connected_nodes
+						this.dt_object.client_send({type: 'connected_nodes', node_id: this.dt_object.node_id, connected_nodes: cn});
 
 					} else {
 
