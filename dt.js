@@ -70,6 +70,14 @@ var dt = function(config) {
 	this.timeout = Number(config.timeout);
 	this.ping_interval = Number(config.ping_interval);
 
+	var m = Buffer.from('this is how each message is encrypted, be careful of javascript variable references and ignore those who harass with lies');
+	// move this console.log() statement to line 80 to see why javascript references can be confusing while you are being harassed with lies and don't have pointers
+	console.log('\nencrypting', m);
+	var enc = this.encrypt(m);
+	console.log('encrypted', enc);
+	var dec = this.decrypt(enc);
+	console.log('decrypted', dec);
+
 	// storage objects
 	this.nodes = [];
 	this.distant_nodes = [];
@@ -1338,17 +1346,98 @@ dt.prototype.client_send = function(j, non_primary_client=null) {
 
 }
 
+dt.prototype.decrypt_clonable = function(b) {
+
+	console.log('decrypting', b);
+
+	var unxor_b = this.unxor(this.key, b);
+
+	console.log('decrypted', unxor_b);
+
+	return unxor_b;
+
+}
+
+dt.prototype.encrypt_clonable = function(b) {
+
+	console.log('encrypting', b);
+
+	var xor_b = this.xor(this.key, b);
+
+	console.log('encrypted', xor_b);
+
+	return xor_b;
+
+}
+
 dt.prototype.decrypt = function(b) {
+
+	/*
+	XOR
+	1 1 = 1
+	0 1 = 0
+	1 0 = 0
+	*/
+
+	//console.log('decrypting', b);
+
+	// unxor the known random bytes length with this.key to get the random key
+	var rk = this.unxor(this.key, b.subarray(0, 512));
+
+	//console.log('random key', rk);
+
+	// get the bytes after the random key length to get the value that is encrypted with the random key
+	var r_b = b.subarray(rk.length);
+
+	//console.log('value encrypted with random key', r_b);
+
+	// unxor the value encrypted with the random key
+	var ret = this.unxor(rk, r_b);
+
+	//console.log('decrypted', ret);
+
+	return ret;
+
+}
+
+dt.prototype.encrypt = function(b) {
+
+	//console.log('encrypting', b);
+
+	// create random key of a known length
+	var rk = crypto.randomBytes(512);
+
+	//console.log('random key', rk);
+
+	// xor b with random key
+	var r_b = this.xor(rk, b);
+
+	//console.log('value encrypted with random key', r_b);
+
+	// xor random key with this.key
+	var r = this.xor(this.key, rk);
+
+	// return xor random key with this.key + (xor b with random key)
+	// decrypt uses this.key to get the random key, then uses the random key to get the original b
+	var ret = Buffer.concat([r, r_b]);
+
+	//console.log('encrypted', ret);
+
+	return ret;
+
+}
+
+dt.prototype.unxor = function(key, b) {
 
 	var c = 0;
 	var key_position = 0;
 	while (c < b.length) {
 
-		if (key_position > this.key.length - 1) {
+		if (key_position > key.length - 1) {
 			key_position = 0;
 		}
 
-		b[c] = b[c] ^ this.key[key_position];
+		b[c] = b[c] ^ key[key_position];
 		c++;
 		key_position++;
 
@@ -1358,17 +1447,17 @@ dt.prototype.decrypt = function(b) {
 
 }
 
-dt.prototype.encrypt = function(b) {
+dt.prototype.xor = function(key, b) {
 
 	var c = 0;
 	var key_position = 0;
 	while (c < b.length) {
 
-		if (key_position > this.key.length - 1) {
+		if (key_position > key.length - 1) {
 			key_position = 0;
 		}
 
-		b[c] = this.key[key_position] ^ b[c];
+		b[c] = key[key_position] ^ b[c];
 		c++;
 		key_position++;
 
