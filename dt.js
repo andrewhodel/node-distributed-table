@@ -72,11 +72,11 @@ var dt = function(config) {
 
 	var m = Buffer.from('this is how each message is encrypted, be careful of javascript variable references and ignore those who harass with lies');
 	// move this console.log() statement to line 80 to see why javascript references can be confusing while you are being harassed with lies and don't have pointers
-	console.log('\nencrypting', m);
+	//console.log('\nencrypting', m);
 	var enc = this.encrypt(m);
-	console.log('encrypted', enc);
+	//console.log('encrypted', enc);
 	var dec = this.decrypt(enc);
-	console.log('decrypted', dec);
+	//console.log('decrypted', dec);
 
 	// storage objects
 	this.nodes = [];
@@ -139,7 +139,7 @@ var dt = function(config) {
 			return;
 		}
 
-		console.log('client connected', conn.remoteAddress);
+		//console.log('client connected', conn.remoteAddress);
 
 		// add the client id
 		// because the client end event may happen after a reconnect
@@ -185,7 +185,7 @@ var dt = function(config) {
 						// add the node to the conn object
 						conn.node = {ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, client_id: conn.client_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: Date.now()};
 
-						console.log(vm.listening_port + ' opened a client connection\n\n');
+						//console.log(vm.listening_port + ' opened a client connection\n\n');
 
 						var updated = false;
 						var c = 0;
@@ -311,7 +311,7 @@ var dt = function(config) {
 		});
 
 		conn.on('end', function() {
-			console.log('client disconnected');
+			//console.log('client disconnected');
 		});
 
 		conn.on('error', function(err) {
@@ -326,7 +326,7 @@ var dt = function(config) {
 	});
 
 	this.server.listen(this.port, function() {
-		console.log('server bound', this.dt_object.port);
+		//console.log('dt server bound', this.dt_object.port);
 
 		// connect to a node
 		this.dt_object.connect();
@@ -355,7 +355,7 @@ dt.prototype.connect = function() {
 		clearInterval(waiter);
 
 		// connect to a node
-		console.log('\ndt.connect() total nodes', this.dt_object.nodes.length);
+		//console.log('\ndt.connect() total nodes', this.dt_object.nodes.length);
 
 		// find the node with the lowest primary_connection_failures
 		// this ensures that the primary connection is to a stable node
@@ -380,11 +380,11 @@ dt.prototype.connect = function() {
 
 			var n_avg = this.dt_object.rtt_avg(n.rtt_array);
 
-			console.log('test primary node against primary_connection_failures', n.node_id, n.ip, n.port, n.primary_connection_failures);
+			//console.log('test primary node against primary_connection_failures', n.node_id, n.ip, n.port, n.primary_connection_failures);
 
 			if (n.is_self === true) {
 				// do not attempt connection to self
-				console.log('\tskipped as self');
+				//console.log('\tskipped as self');
 				c++;
 				continue;
 			}
@@ -392,7 +392,7 @@ dt.prototype.connect = function() {
 			if (this.dt_object.node_connected(n) === true) {
 				// do not attempt connection to nodes that are already connected
 				// a connection object means the node is connected
-				console.log('\tskipped as connected client');
+				//console.log('\tskipped as connected client');
 				c++;
 				continue;
 			}
@@ -403,7 +403,7 @@ dt.prototype.connect = function() {
 				lowest_avg_rtt = n_avg;
 				lowest_primary_connection_failures = n.primary_connection_failures;
 
-				console.log('better primary node selection against primary_connection_failures');
+				//console.log('better primary node selection against primary_connection_failures');
 			}
 
 			c++;
@@ -422,22 +422,22 @@ dt.prototype.connect = function() {
 
 				var n_avg = this.dt_object.rtt_avg(n.rtt_array);
 
-				console.log('test primary node against average rtt', n.node_id, n.ip, n.port, n_avg);
+				//console.log('test primary node against average rtt', n.node_id, n.ip, n.port, n_avg);
 
 				if (n.is_self === true) {
 					// skip self nodes
 				} else if (isNaN(n_avg)) {
 					// skip nodes with no average rtt
-					console.log('\tskipped with no average rtt');
+					//console.log('\tskipped with no average rtt');
 				} else if (n.primary_connection_failures > lowest_primary_connection_failures) {
 					// skip nodes that have more primary_connection failures
-					console.log('\tskipped per more primary_connection_failures than lowest');
+					//console.log('\tskipped per more primary_connection_failures than lowest');
 				} else if (n_avg < lowest_avg_rtt) {
 					// there is a node with better latency
 					primary_node = n;
 					lowest_avg_rtt = n_avg;
 
-					console.log('better primary node selection against average rtt', n.node_id);
+					//console.log('better primary node selection against average rtt', n.node_id);
 				}
 				r++;
 			}
@@ -447,14 +447,14 @@ dt.prototype.connect = function() {
 		if (Object.keys(primary_node).length === 0) {
 			// this node has no nodes to connect to
 			// it should stay on to allow nodes to connect to it
-			console.log('no nodes ready for connection');
+			//console.log('no nodes ready for connection');
 
 			// try again
 			this.dt_object.connect();
 			return;
 		}
 
-		console.log('\n\n\n\n\n\n\nbest node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'average rtt: ' + this.dt_object.rtt_avg(primary_node.rtt_array));
+		//console.log('\n\n\n\n\n\n\nbest node for primary client connection', primary_node.ip, primary_node.port, primary_node.node_id, 'primary_connection_failures: ' + primary_node.primary_connection_failures, 'average rtt: ' + this.dt_object.rtt_avg(primary_node.rtt_array));
 
 		// ping the server
 		var primary_client_ping;
@@ -467,7 +467,7 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client = net.connect({port: primary_node.port, host: primary_node.ip, keepAlive: true}, function() {
 			// 'connect' listener.
-			console.log('primary client connected to', primary_node.ip, primary_node.port, primary_node.node_id);
+			//console.log('primary client connected to', primary_node.ip, primary_node.port, primary_node.node_id);
 
 			// set the start time of this connection
 			primary_node.primary_connection_start = Date.now();
@@ -508,7 +508,7 @@ dt.prototype.connect = function() {
 					clearInterval(primary_client_send_object_hashes);
 				} else {
 					// non master nodes shall wait until the object hashes are received
-					console.log('primary client waiting to send object_hashes to server until recieved');
+					//console.log('primary client waiting to send object_hashes to server until recieved');
 					return;
 				}
 
@@ -646,7 +646,7 @@ dt.prototype.connect = function() {
 
 			primary_node.connected_as_primary = false;
 
-			console.log('primary client disconnected from server node', primary_node.ip, primary_node.port, primary_node.node_id);
+			//console.log('primary client disconnected from server node', primary_node.ip, primary_node.port, primary_node.node_id);
 
 			// reconnect to the network
 			this.dt_object.connect();
@@ -758,7 +758,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
 		// 'connect' listener.
-		console.log('test_node() connected', node.ip, node.port);
+		//console.log('test_node() connected', node.ip, node.port);
 
 		this.dt_object.active_test_count++;
 
@@ -813,7 +813,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 					node.node_id = j.node_id;
 					node.is_self = true;
 					node.test_status = 'is_self'
-					console.log('ending test client connection to self');
+					//console.log('ending test client connection to self');
 					client.end();
 
 				} if (j.type === 'test_pong') {
@@ -842,7 +842,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 						node.test_failures = 0;
 						node.last_test_success = Date.now();
 
-						console.log('test_node() success, avg rtt', this.dt_object.rtt_avg(node.rtt_array));
+						//console.log('test_node() success, avg rtt', this.dt_object.rtt_avg(node.rtt_array));
 
 						if (is_distant_node === true) {
 
@@ -957,7 +957,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		clearInterval(ping);
 		this.dt_object.active_test_count--;
 
-		console.log('disconnected from node in test_node()', node.ip, node.port, node.node_id);
+		//console.log('disconnected from node in test_node()', node.ip, node.port, node.node_id);
 
 	}.bind({dt_object: this}));
 
@@ -995,17 +995,17 @@ dt.prototype.clean = function() {
 
 	setInterval(function() {
 
-		console.log('\nnode id: ' + this.dt_object.node_id);
-		console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
+		//console.log('\nnode id: ' + this.dt_object.node_id);
+		//console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
 		if (this.dt_object.client) {
-			console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
+			//console.log('primary client is connected to', this.dt_object.client.remoteAddress, this.dt_object.client.remotePort);
 		} else {
-			console.log('primary client is not connected');
+			//console.log('primary client is not connected');
 		}
-		console.log('node objects', this.dt_object.objects.length);
-		console.log('fragment_list', this.dt_object.fragment_list.length);
-		console.log('non expired message_ids', this.dt_object.message_ids.length);
-		console.log('active test count', this.dt_object.active_test_count);
+		//console.log('node objects', this.dt_object.objects.length);
+		//console.log('fragment_list', this.dt_object.fragment_list.length);
+		//console.log('non expired message_ids', this.dt_object.message_ids.length);
+		//console.log('active test count', this.dt_object.active_test_count);
 
 		var v = this.dt_object.fragment_list.length-1;
 		while (v >= 0) {
@@ -1132,7 +1132,7 @@ dt.prototype.clean = function() {
 				continue;
 			}
 
-			console.log('distant_node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
+			//console.log('distant_node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
 			if (n.last_test_success !== undefined) {
 
@@ -1187,7 +1187,7 @@ dt.prototype.clean = function() {
 				continue;
 			}
 
-			console.log('node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
+			//console.log('node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT');
 
 			// initial nodes are not subject to unreachable
 			// there address is written into the initial list before node launch
@@ -1274,7 +1274,7 @@ dt.prototype.clean = function() {
 				}
 
 				if (dc === true) {
-					console.log('ending primary client connection, there is a better connection available from another node');
+					//console.log('ending primary client connection, there is a better connection available from another node');
 					// the primary client should reconnect, there is a better connection/link to another node
 					this.dt_object.client.end();
 				}
@@ -1290,7 +1290,7 @@ dt.prototype.clean = function() {
 dt.prototype.server_send = function(conn, j) {
 
 	if (conn === undefined) {
-		console.log('server write impossible, conn object not available', j);
+		//console.log('server write impossible, conn object not available', j);
 		return;
 	}
 
@@ -1758,7 +1758,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 	} else if (j.type === 'object_hashes') {
 
 		// a client node sent it's list of object sha256 checksums/hashes
-		console.log('client node sent object_hashes', j.object_hashes.length);
+		//console.log('client node sent object_hashes', j.object_hashes.length);
 
 		if (j.object_hashes.length === 0) {
 
@@ -1812,7 +1812,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 		// disconnect
 		// this will start a reconnect, and another node will be attempted
-		console.log('ending primary client connection to self');
+		//console.log('ending primary client connection to self');
 		this.client.end();
 
 	} else if (j.type === 'pong') {
@@ -2004,7 +2004,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 	} else if (j.type === 'object_hashes') {
 
 		// the server node sent it's list of object sha256 checksums/hashes
-		console.log('server node sent object_hashes', j.object_hashes.length);
+		//console.log('server node sent object_hashes', j.object_hashes.length);
 
 		if (j.object_hashes.length === 0) {
 
@@ -2273,7 +2273,7 @@ dt.prototype.remove_object = function(h) {
 
 dt.prototype.defragment_reconnect = function(node) {
 
-	console.log('defragmentation requires a primary client reconnect to a non connected node');
+	//console.log('defragmentation requires a primary client reconnect to a non connected node');
 
 	// send a distant_node message via the existing primary client
 	// if it exists
@@ -2281,7 +2281,7 @@ dt.prototype.defragment_reconnect = function(node) {
 		this.dt_object.client_send({type: 'distant_node', ip: node.ip, port: node.port, node_id: node.node_id});
 	}
 
-	console.log('reconnecting primary client to', node.ip, node.port);
+	//console.log('reconnecting primary client to', node.ip, node.port);
 
 	// set node.force_connect to true
 	node.force_connect = true;
@@ -2297,7 +2297,7 @@ dt.prototype.defragment_node = function(node) {
 
 	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
 		// 'connect' listener.
-		console.log('defragment_node() connected', node.ip, node.port);
+		//console.log('defragment_node() connected', node.ip, node.port);
 
 		// send the defragment message with dt.port and fragment_list_length
 		this.dt_object.client_send({type: 'defragment', fragment_list_length: this.dt_object.fragment_list.length, port: this.dt_object.port, node_id: this.dt_object.node_id}, client);
@@ -2389,7 +2389,7 @@ dt.prototype.defragment_node = function(node) {
 
 	client.on('end', function() {
 
-		console.log('disconnected from node in defragment_node()', node.ip, node.port, node.node_id);
+		//console.log('disconnected from node in defragment_node()', node.ip, node.port, node.node_id);
 
 	}.bind({dt_object: this}));
 
