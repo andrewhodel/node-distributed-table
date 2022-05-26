@@ -104,7 +104,7 @@ var dt = function(config) {
 	this.retest_wait_period = 1000 * 60 * 10;
 	// do not allow messages with a duplicate message_id more than this often
 	this.message_duplicate_expire = 1000 * 60 * 5;
-	this.debug = true;
+	this.debug = false;
 
 	var c = 0;
 	while (c < config.nodes.length) {
