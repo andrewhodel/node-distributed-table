@@ -32,4 +32,4 @@ setInterval(function() {
 	console.log('sending message to all nodes');
 	dt_node.send_message({some_key: 'an object is a nice message format if amongst online nodes'});
 
-}, 5000);
+}, 500);
