@@ -336,7 +336,7 @@ var dt = function(config) {
 
 		});
 
-		conn.on('end', function() {
+		conn.on('close', function() {
 			//console.log('client disconnected');
 		});
 
@@ -495,13 +495,6 @@ dt.prototype.connect = function() {
 			// 'connect' listener.
 			//console.log('primary client connected to', primary_node.ip, primary_node.port, primary_node.node_id);
 
-			// set the start time of this connection
-			primary_node.primary_connection_start = Date.now();
-
-			// set the msn
-			this.dt_object.client.msn = -1;
-			this.dt_object.client.prev_msn = -2;
-
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
@@ -563,6 +556,16 @@ dt.prototype.connect = function() {
 			}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
 		}.bind({dt_object: this.dt_object}));
+
+		// set the start time of this connection
+		primary_node.primary_connection_start = Date.now();
+
+		// set the msn
+		this.dt_object.client.msn = -1;
+		this.dt_object.client.prev_msn = -2;
+
+		// set client_send_waiters
+		this.dt_object.client.client_send_waiters = [];
 
 		// set client timeout of the socket
 		this.dt_object.client.setTimeout(this.dt_object.timeout);
@@ -681,7 +684,7 @@ dt.prototype.connect = function() {
 
 		});
 
-		this.dt_object.client.on('end', function() {
+		this.dt_object.client.on('close', function() {
 
 			// stop pinging
 			clearInterval(primary_client_ping);
@@ -811,12 +814,6 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		// 'connect' listener.
 		//console.log('test_node() connected', node.ip, node.port);
 
-		this.dt_object.active_test_count++;
-
-		// set the msn
-		client.msn = -1;
-		client.prev_msn = -2;
-
 		// send the connected nodes
 		var cn = [];
 
@@ -843,6 +840,16 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
 	}.bind({dt_object: this}));
+
+	// increment the active test count
+	this.active_test_count++;
+
+	// set the msn
+	client.msn = -1;
+	client.prev_msn = -2;
+
+	// set client_send_waiters
+	client.client_send_waiters = [];
 
 	// set client timeout of the socket
 	client.setTimeout(this.timeout);
@@ -1019,7 +1026,7 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	});
 
-	client.on('end', function() {
+	client.on('close', function() {
 
 		// stop pinging
 		clearInterval(ping);
@@ -2412,14 +2419,17 @@ dt.prototype.defragment_node = function(node) {
 		// 'connect' listener.
 		//console.log('defragment_node() connected', node.ip, node.port);
 
-		// set the msn
-		client.msn = -1;
-		client.prev_msn = -2;
-
 		// send the defragment message with dt.port and fragment_list_length
 		this.dt_object.client_send({type: 'defragment', fragment_list_length: this.dt_object.fragment_list.length, port: this.dt_object.port, node_id: this.dt_object.node_id}, client);
 
 	}.bind({dt_object: this}));
+
+	// set the msn
+	client.msn = -1;
+	client.prev_msn = -2;
+
+	// set client_send_waiters
+	client.client_send_waiters = [];
 
 	// set client timeout of the socket
 	client.setTimeout(this.timeout);
@@ -2517,7 +2527,7 @@ dt.prototype.defragment_node = function(node) {
 
 	});
 
-	client.on('end', function() {
+	client.on('close', function() {
 
 		//console.log('disconnected from node in defragment_node()', node.ip, node.port, node.node_id);
 
