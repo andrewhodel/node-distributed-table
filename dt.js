@@ -179,12 +179,16 @@ var dt = function(config) {
 
 					if (conn.msn - vm.msn !== 1) {
 						// disconnect if client is sending out of sequence
-						console.log('socket disconnected per out of sequence message sequence number');
+						if (this.dt_object.debug === true) {
+							console.log('socket disconnected per out of sequence message sequence number');
+						}
 						conn.end();
 						return;
 					} else if (vm.client_id !== conn.client_id && conn.msn !== 0) {
 						// disconnect a different client_id after first message that sets the sequence number and client id before allowing any modifications
-						console.log('socket disconnected per invalid client_id');
+						if (this.dt_object.debug === true) {
+							console.log('socket disconnected per invalid client_id');
+						}
 						conn.end();
 						return;
 					}
