@@ -104,6 +104,8 @@ var dt = function(config) {
 	this.retest_wait_period = 1000 * 60 * 10;
 	// do not allow messages with a duplicate message_id more than this often
 	this.message_duplicate_expire = 1000 * 60 * 5;
+	// only defrag this often
+	this.defrag_wait_period = 1000 * 60 * 10;
 	this.debug = false;
 
 	var c = 0;
@@ -117,7 +119,7 @@ var dt = function(config) {
 			process.exit(1);
 		}
 
-		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, origin_type: 'initial', primary_connection_failures: 0, node_id: null, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, conn: undefined, test_count: 0, primary_client_connect_count: 0, defrag_count: 0});
+		this.nodes.push({ip: ip_port[0], port: Number(ip_port[1]), is_self: false, origin_type: 'initial', primary_connection_failures: 0, node_id: null, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, conn: undefined, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now()});
 
 		c++;
 
@@ -207,7 +209,6 @@ var dt = function(config) {
 						// add the node_id to the conn object
 						conn.node_id = vm.node_id;
 
-
 						//console.log(vm.listening_port + ' opened a client connection\n\n');
 
 						var updated = false;
@@ -236,7 +237,7 @@ var dt = function(config) {
 
 						if (updated === false) {
 							// create the node
-							conn.node = {ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: Date.now(), test_count: 0, primary_client_connect_count: 0, defrag_count: 0};
+							conn.node = {ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: Date.now(), test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now()};
 							// add node to this.nodes
 							this.dt_object.nodes.push(conn.node);
 						}
@@ -1195,7 +1196,7 @@ dt.prototype.clean = function() {
 
 			}
 
-			if (non_connected_node_not_in_fragment_list !== null) {
+			if (non_connected_node_not_in_fragment_list !== null && Date.now() - this.dt_object.last_defrag >= this.defrag_wait_period) {
 				// the non connected node is not in the fragment_list
 				// start the defragment routine
 				this.dt_object.defragment_node(non_connected_node_not_in_fragment_list);
@@ -1634,7 +1635,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		if (j.fragment_list_length >= this.fragment_list.length) {
 			// this node has a smaller fragment list and should reconnect to the node that sent the defragment message
 			// defragment_reconnect() to the node
-			this.defragment_reconnect({ip: this.clean_remote_address(this.client.remoteAddress), port: j.port, node_id: j.node_id});
+			this.defragment_reconnect({ip: this.clean_remote_address(conn.remoteAddress), port: j.port, node_id: j.node_id});
 		} else {
 			// the sending node has a smaller fragment list and should reconnect
 			this.server_send(conn, {type: 'defragment_greater_count'});
@@ -1739,7 +1740,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false, origin_type: 'distant', last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false, origin_type: 'distant', last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now()});
 
 			// the distant node may need to know of this node
 			// send a distant_node message of this node to the client
@@ -2022,7 +2023,7 @@ dt.prototype.valid_primary_client_message = function(primary_node, j) {
 
 			// add to this.distant_nodes that are tested for improved connection quality
 			// and may be added as nodes
-			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false, origin_type: 'distant', last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0});
+			this.distant_nodes.push({ip: j.ip, port: j.port, node_id: j.node_id, last_known_as_distant: Date.now(), test_status: 'pending', rtt: -1, rtt_array: [], test_failures: 0, connected_as_primary: false, primary_connection_failures: 0, is_self: false, origin_type: 'distant', last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now()});
 
 		}
 
@@ -2432,7 +2433,10 @@ dt.prototype.defragment_reconnect = function(node) {
 
 dt.prototype.defragment_node = function(node) {
 
+	//console.log('defragment_node()', node.ip, node.port);
+
 	node.defrag_count++;
+	node.last_defrag = Date.now();
 
 	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
 		// 'connect' listener.
@@ -2463,7 +2467,7 @@ dt.prototype.defragment_node = function(node) {
 
 			// decrypt the data_len
 			var decrypted = this.dt_object.decrypt(data.subarray(0, data_len));
-			//console.log('test client decrypted read', decrypted.length, decrypted.toString());
+			//console.log('defragment client decrypted read', decrypted.length, decrypted.toString());
 
 			try {
 				// decrypted is a valid message
