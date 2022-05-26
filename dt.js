@@ -203,8 +203,6 @@ var dt = function(config) {
 						// add the node_id to the conn object
 						conn.node_id = vm.node_id;
 
-						// add the node to the conn object
-						conn.node = {ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: Date.now(), test_count: 0, primary_client_connect_count: 0, defrag_count: 0};
 
 						//console.log(vm.listening_port + ' opened a client connection\n\n');
 
@@ -216,9 +214,8 @@ var dt = function(config) {
 							var n = this.dt_object.nodes[c];
 
 							if (n.node_id === vm.node_id || (n.ip === node_ip && n.port === vm.listening_port)) {
-								// update the node
-								// this will not set with the reference n (n = conn.node fails to set without error)
-								this.dt_object.nodes[c] = conn.node
+								// set the node object on conn
+								conn.node = this.dt_object.nodes[c];
 								updated = true;
 							} else if (this.dt_object.node_connected(n) === true) {
 								// tell client nodes that a node connected with a distant_node message
@@ -232,6 +229,8 @@ var dt = function(config) {
 						this.dt_object.client_send({type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
 
 						if (updated === false) {
+							// create the node
+							conn.node = {ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: Date.now(), test_count: 0, primary_client_connect_count: 0, defrag_count: 0};
 							// add node to this.nodes
 							this.dt_object.nodes.push(conn.node);
 						}
@@ -1301,9 +1300,9 @@ dt.prototype.clean = function() {
 			if (n.connected_as_primary === false) {
 				// this is not the node that is connected via the primary client
 
-				if (n.test_status === 'pending') {
+				if (n.test_status === 'pending' && this.dt_object.node_connected(n) === false) {
 
-					// start a latency test on this node
+					// start a latency test on this node that is not connected
 					this.dt_object.test_node(n);
 
 				} else if (n.test_status === 'failed') {
