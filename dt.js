@@ -286,26 +286,32 @@ var dt = function(config) {
 
 		conn.on('data', function(chunk) {
 
-			if (data_len === 0) {
-				// first chunk
+			try {
 
-				// read length
-				data_len = chunk.readUInt32BE(0);
+				if (data_len === 0) {
+					// first chunk
 
-				//console.log('first chunk, data length', data_len);
+					// read length
+					data_len = chunk.readUInt32BE(0);
 
-				// add to data without length
-				data = Buffer.concat([data, chunk.subarray(4)]);
+					//console.log('first chunk, data length', data_len);
 
-				test_all_data();
+					// add to data without length
+					data = Buffer.concat([data, chunk.subarray(4)]);
 
-			} else {
+					test_all_data();
 
-				// continue to read through data_len
-				data = Buffer.concat([data, chunk]);
+				} else {
 
-				test_all_data();
+					// continue to read through data_len
+					data = Buffer.concat([data, chunk]);
 
+					test_all_data();
+
+				}
+
+			} catch (err) {
+				console.log('socket read error', err);
 			}
 
 		});
@@ -614,26 +620,32 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('data', function(chunk) {
 
-			if (data_len === 0) {
-				// first chunk
+			try {
 
-				// read length
-				data_len = chunk.readUInt32BE(0);
+				if (data_len === 0) {
+					// first chunk
 
-				//console.log('first chunk, data length', data_len);
+					// read length
+					data_len = chunk.readUInt32BE(0);
 
-				// add to data without length
-				data = Buffer.concat([data, chunk.subarray(4)]);
+					//console.log('first chunk, data length', data_len);
 
-				test_all_data();
+					// add to data without length
+					data = Buffer.concat([data, chunk.subarray(4)]);
 
-			} else {
+					test_all_data();
 
-				// continue to read through data_len
-				data = Buffer.concat([data, chunk]);
+				} else {
 
-				test_all_data();
+					// continue to read through data_len
+					data = Buffer.concat([data, chunk]);
 
+					test_all_data();
+
+				}
+
+			} catch (err) {
+				console.log('socket read error', err);
 			}
 
 		});
@@ -927,26 +939,32 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 
 	client.on('data', function(chunk) {
 
-		if (data_len === 0) {
-			// first chunk
+		try {
 
-			// read length
-			data_len = chunk.readUInt32BE(0);
+			if (data_len === 0) {
+				// first chunk
 
-			//console.log('first chunk, data length', data_len);
+				// read length
+				data_len = chunk.readUInt32BE(0);
 
-			// add to data without length
-			data = Buffer.concat([data, chunk.subarray(4)]);
+				//console.log('first chunk, data length', data_len);
 
-			test_all_data();
+				// add to data without length
+				data = Buffer.concat([data, chunk.subarray(4)]);
 
-		} else {
+				test_all_data();
 
-			// continue to read through data_len
-			data = Buffer.concat([data, chunk]);
+			} else {
 
-			test_all_data();
+				// continue to read through data_len
+				data = Buffer.concat([data, chunk]);
 
+				test_all_data();
+
+			}
+
+		} catch (err) {
+			console.log('socket read error', err);
 		}
 
 	});
@@ -2363,26 +2381,32 @@ dt.prototype.defragment_node = function(node) {
 
 	client.on('data', function(chunk) {
 
-		if (data_len === 0) {
-			// first chunk
+		try {
 
-			// read length
-			data_len = chunk.readUInt32BE(0);
+			if (data_len === 0) {
+				// first chunk
 
-			//console.log('first chunk, data length', data_len);
+				// read length
+				data_len = chunk.readUInt32BE(0);
 
-			// add to data without length
-			data = Buffer.concat([data, chunk.subarray(4)]);
+				//console.log('first chunk, data length', data_len);
 
-			test_all_data();
+				// add to data without length
+				data = Buffer.concat([data, chunk.subarray(4)]);
 
-		} else {
+				test_all_data();
 
-			// continue to read through data_len
-			data = Buffer.concat([data, chunk]);
+			} else {
 
-			test_all_data();
+				// continue to read through data_len
+				data = Buffer.concat([data, chunk]);
 
+				test_all_data();
+
+			}
+
+		} catch (err) {
+			console.log('socket read error', err);
 		}
 
 	});
