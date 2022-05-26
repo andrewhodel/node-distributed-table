@@ -218,6 +218,8 @@ var dt = function(config) {
 							var n = this.dt_object.nodes[c];
 
 							if (n.node_id === vm.node_id || (n.ip === node_ip && n.port === vm.listening_port)) {
+								// update the conn object on the node
+								this.dt_object.nodes[c].conn = conn
 								// set the node object on conn
 								conn.node = this.dt_object.nodes[c];
 								updated = true;
