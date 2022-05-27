@@ -1,4 +1,4 @@
-Objects are synchronized across the network using the functions `dt.add_object(object)` and `dt.remove_object(object)` from any node on the network.
+Objects are synchronized across the network using the functions `dt.add_object(object)` and `dt.remove_object(object)` from a master node.
 
 Messages sent with `dt.send_message(object)` are sent to all nodes on the network that are online when they reach a connected peer.  They are received in the `message_received` event.
 
