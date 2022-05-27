@@ -4,6 +4,10 @@ Messages sent with `dt.send_message(object)` are sent to all nodes on the networ
 
 IPv4 and IPv6 are supported.
 
+# install
+
+`git clone --recursive https://github.com/andrewhodel/node-distributed-table`
+
 # example
 
 Run 5 nodes, each on a different port on localhost.

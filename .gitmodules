@@ -1,0 +1,3 @@
+[submodule "node-ip-ac"]
+	path = node-ip-ac
+	url = https://github.com/andrewhodel/node-ip-ac
