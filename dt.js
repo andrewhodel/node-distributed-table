@@ -282,6 +282,7 @@ var dt = function(config) {
 					console.error('error in server with a client authorization', err);
 					// if the decrypted message does not parse into JSON
 					// this is an invalid connection
+					// add an unauthorized attempt to node-ip-ac
 					ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
 					conn.end();
 					return;
@@ -321,6 +322,17 @@ var dt = function(config) {
 					// read length
 					data_len = chunk.readUInt32BE(0);
 
+					if (conn.msn === 0) {
+						// this is the first message from a connection
+						// if more than 1000 bytes are sent
+						// disconnect the socket and add an invalid authorization attempt to node-ip-ac
+						if (data_len > 1000 || data.length > 1000 || chunk.length > 1000) {
+							ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
+							conn.end();
+							return;
+						}
+					}
+
 					//console.log('first chunk, data length', data_len);
 
 					// add to data without length
@@ -341,7 +353,7 @@ var dt = function(config) {
 				console.log('socket read error', err);
 			}
 
-		});
+		}.bind({dt_object: this.dt_object}));
 
 		conn.on('close', function() {
 			//console.log('client disconnected');
