@@ -373,7 +373,7 @@ var dt = function(config) {
 	this.server.listen(this.port, function() {
 		//console.log('dt server bound', this.dt_object.port);
 
-		// connect to a node
+		// connect to a node, first attempt after the server is successfully started
 		this.dt_object.connect();
 
 		// start clean routine
@@ -739,9 +739,6 @@ dt.prototype.connect = function() {
 			// a connection timeout is a failure
 			primary_node.primary_connection_failures++;
 
-			// reconnect to the network
-			this.dt_object.connect();
-
 		}.bind({dt_object: this.dt_object}));
 
 		this.dt_object.client.on('error', function(err) {
@@ -752,9 +749,6 @@ dt.prototype.connect = function() {
 
 			// a connection error is a failure
 			primary_node.primary_connection_failures++;
-
-			// reconnect to the network
-			this.dt_object.connect();
 
 		}.bind({dt_object: this.dt_object}));
 
