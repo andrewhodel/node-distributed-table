@@ -185,14 +185,14 @@ var dt = function(config) {
 
 					if (conn.msn - vm.msn !== 1) {
 						// disconnect if client is sending out of sequence
-						if (this.dt_object.debug === 1) {
+						if (this.dt_object.debug >= 1) {
 							console.log('socket disconnected per out of sequence message sequence number');
 						}
 						conn.end();
 						return;
 					} else if (vm.client_id !== conn.client_id && conn.msn !== 0) {
 						// disconnect a different client_id after first message that sets the sequence number and client id before allowing any modifications
-						if (this.dt_object.debug === 1) {
+						if (this.dt_object.debug >= 1) {
 							console.log('socket disconnected per invalid client_id');
 						}
 						conn.end();
@@ -720,7 +720,7 @@ dt.prototype.connect = function() {
 
 			primary_node.connected_as_primary = false;
 
-			if (this.dt_object.debug === 1) {
+			if (this.dt_object.debug >= 1) {
 				console.log('primary client disconnected from server node', primary_node.ip, primary_node.port, primary_node.node_id);
 			}
 
@@ -1105,7 +1105,7 @@ dt.prototype.clean = function() {
 
 	setInterval(function() {
 
-		if (this.dt_object.debug === 1) {
+		if (this.dt_object.debug >= 1) {
 			console.log('\nnode id: ' + this.dt_object.node_id);
 			console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
 			if (this.dt_object.client) {
@@ -1244,7 +1244,7 @@ dt.prototype.clean = function() {
 				continue;
 			}
 
-			if (this.dt_object.debug === 1) {
+			if (this.dt_object.debug >= 1) {
 				console.log('distant_node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count);
 			}
 
@@ -1301,7 +1301,7 @@ dt.prototype.clean = function() {
 				continue;
 			}
 
-			if (this.dt_object.debug === 1) {
+			if (this.dt_object.debug >= 1) {
 				console.log('node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count);
 			}
 
