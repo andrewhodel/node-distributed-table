@@ -12,7 +12,7 @@ When the primary client is disconnected the connection routine starts:
 
 1. find the node with the lowest connection failures
 2. find the node that has the lowest latency and less or equal connection failures than the node found in step 1
-3. connect to node found in step 2 with the primary client
+3. connect to node found in step 2 with the primary client and store the `client_id` from the first message received to be sent with all future messages
 4. sends `open` with it's node_id to be tested as `is_self`, validates response or disconnects
 5. sends `connected_nodes` to be stored in `fragment_list`
 6. begins sending `ping` messages, accepting `pong` messages and maintaining the 20 latest round trip times
@@ -92,4 +92,11 @@ this.purge_node_wait = 1000 * 60 * 60;
 this.retest_wait_period = 1000 * 60 * 10;
 // do not allow messages with a duplicate message_id more than this often
 this.message_duplicate_expire = 1000 * 60 * 5;
+// only defrag this often
+this.defrag_wait_period = 1000 * 60 * 10;
+// debug settings, each shows itself and all those below
+// 0	no debugging output
+// 1	show nodes
+// 2	show messages and what node they are from
+this.debug = 0;
 ```
