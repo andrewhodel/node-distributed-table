@@ -152,8 +152,11 @@ var dt = function(config) {
 		// create the client id
 		conn.client_id = crypto.randomUUID();
 
-		// set the message sequence number
-		conn.msn = 0;
+		// set the recv_msn
+		conn.recv_msn = 0;
+
+		// send the client id
+		this.dt_object.server_send(conn, {type: 'client_id', client_id: conn.client_id});
 
 		var data = Buffer.alloc(0);
 		var data_len = 0;
@@ -179,19 +182,22 @@ var dt = function(config) {
 						return;
 					}
 
-					//console.log('conn.msn', conn.msn);
-					//console.log('vm.msn', vm.msn);
-					//console.log('conn.client_id', conn.client_id);
-					//console.log(vm);
+					/*
+					console.log('server received a message');
+					console.log('conn.recv_msn', conn.recv_msn);
+					console.log('vm.msn', vm.msn);
+					console.log('conn.client_id', conn.client_id);
+					console.log(vm);
+					*/
 
-					if (conn.msn - vm.msn !== 1) {
+					if (conn.recv_msn !== vm.msn) {
 						// disconnect if client is sending out of sequence
 						if (this.dt_object.debug >= 1) {
-							console.log('socket disconnected per out of sequence message sequence number');
+							console.log('socket disconnected per invalid message sequence number');
 						}
 						conn.end();
 						return;
-					} else if (vm.client_id !== conn.client_id && conn.msn !== 0) {
+					} else if (vm.client_id !== conn.client_id && conn.recv_msn !== 0) {
 						// disconnect a different client_id after first message that sets the sequence number and client id before allowing any modifications
 						if (this.dt_object.debug >= 1) {
 							console.log('socket disconnected per invalid client_id');
@@ -199,6 +205,9 @@ var dt = function(config) {
 						conn.end();
 						return;
 					}
+
+					// increment the recv_msn of the connection
+					conn.recv_msn++;
 
 					// type open is the first message
 					if (vm.type === 'open') {
@@ -327,7 +336,7 @@ var dt = function(config) {
 					// read length
 					data_len = chunk.readUInt32BE(0);
 
-					if (conn.msn === 0) {
+					if (conn.recv_msn === 0) {
 						// this is the first message from a connection
 						// if more than 1000 bytes are sent
 						// disconnect the socket and add an invalid authorization attempt to node-ip-ac
@@ -589,15 +598,11 @@ dt.prototype.connect = function() {
 		// set the start time of this connection
 		this.dt_object.primary_node.primary_connection_start = Date.now();
 
-		// set the msn
-		this.dt_object.client.msn = -1;
-		this.dt_object.client.prev_msn = -2;
-
-		// set client_send_waiters
-		this.dt_object.client.client_send_waiters = [];
-
 		// set client timeout of the socket
 		this.dt_object.client.setTimeout(this.dt_object.timeout);
+
+		// set the recv_msn
+		this.dt_object.client.recv_msn = 0;
 
 		var data = Buffer.alloc(0);
 		var data_len = 0;
@@ -619,9 +624,14 @@ dt.prototype.connect = function() {
 					// update the client_id (socket id) sent from the server
 					//console.log('primary client response with client_id', vm.client_id);
 					this.dt_object.client.client_id = vm.client_id;
-					// update the msn
-					this.dt_object.client.prev_msn = Number(this.dt_object.client.msn);
-					this.dt_object.client.msn = vm.msn;
+
+					if (this.dt_object.client.recv_msn !== vm.msn) {
+						// disconnect per out of sequence msn
+						console.log('disconnecting from server per out of sequence msn');
+						this.dt_object.client.end();
+						return;
+					}
+					this.dt_object.client.recv_msn++;
 
 					// type: 'open' is the response to the sent type: 'open' message
 					// when there is a valid connection
@@ -723,14 +733,6 @@ dt.prototype.connect = function() {
 
 			if (this.dt_object.debug >= 1) {
 				console.log('primary client disconnected from server node', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
-			}
-
-			// clear all the client send waiters
-			var c = this.dt_object.client.client_send_waiters.length - 1;
-			while (c >= 0) {
-				clearInterval(this.dt_object.client.client_send_waiters[c]);
-				this.dt_object.client.client_send_waiters.splice(c, 1);
-				c--;
 			}
 
 			// reconnect to the network
@@ -870,15 +872,11 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 	// increment the active test count
 	this.active_test_count++;
 
-	// set the msn
-	client.msn = -1;
-	client.prev_msn = -2;
-
-	// set client_send_waiters
-	client.client_send_waiters = [];
-
 	// set client timeout of the socket
 	client.setTimeout(this.timeout);
+
+	// set the recv_msn
+	client.recv_msn = 0;
 
 	var data = Buffer.alloc(0);
 	var data_len = 0;
@@ -899,9 +897,14 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 				// update the client_id (socket id) sent from the server
 				//console.log('test client response with client id', j.client_id);
 				client.client_id = j.client_id;
-				// update the msn
-				client.prev_msn = Number(client.msn);
-				client.msn = j.msn;
+
+				if (client.recv_msn !== j.msn) {
+					// disconnect per out of sequence msn
+					console.log('disconnecting from server per out of sequence msn');
+					client.end();
+					return;
+				}
+				client.recv_msn++;
 
 				if (j.type === 'is_self') {
 
@@ -1059,14 +1062,6 @@ dt.prototype.test_node = function(node, is_distant_node=false) {
 		// stop pinging
 		clearInterval(ping);
 		this.dt_object.active_test_count--;
-
-		// clear all the client send waiters
-		var c = client.client_send_waiters.length - 1;
-		while (c >= 0) {
-			clearInterval(client.client_send_waiters[c]);
-			client.client_send_waiters.splice(c, 1);
-			c--;
-		}
 
 		//console.log('disconnected from node in test_node()', node.ip, node.port, node.node_id);
 
@@ -1409,8 +1404,15 @@ dt.prototype.server_send = function(conn, j) {
 	// add the random client id of the socket to the message
 	j.client_id = conn.client_id;
 
-	// add the msn
-	j.msn = conn.msn;
+	// each conn increments send_msn to know the order of the messages
+	if (conn.send_msn === undefined) {
+		conn.send_msn = 0;
+	} else {
+		conn.send_msn++;
+	}
+
+	// add the msn from the conn object that the server stores for the client
+	j.msn = conn.send_msn;
 
 	// expects a JSON object
 
@@ -1432,9 +1434,6 @@ dt.prototype.server_send = function(conn, j) {
 	//console.log('server write', b.length, JSON.stringify(j));
 	conn.write(b);
 
-	// increment the msn
-	conn.msn++;
-
 }
 
 dt.prototype.client_send = function(j, non_primary_client=null) {
@@ -1451,47 +1450,39 @@ dt.prototype.client_send = function(j, non_primary_client=null) {
 		return;
 	}
 
-	var client_send_waiter = setInterval(function() {
-
-		if (selected_client.msn - selected_client.prev_msn !== 1) {
-			return;
-		}
-
-		clearInterval(client_send_waiter);
-
-		// wait to send until client.msn > client.prev_msn
-		//console.log('client_send() msn, prev_msn', selected_client.msn, selected_client.prev_msn);
-
-		// send to a server
-		// as the client
-
-		// add the client id to the message (socket id)
-		j.client_id = selected_client.client_id
-		j.msn = selected_client.msn;
-
-		// expects a JSON object
-
-		// encrypt the JSON object string
-		var jsb = this.dt_object.encrypt(Buffer.from(JSON.stringify(j)));
-
-		//console.log('client_send() length', jsb.length);
-
-		// write the length
-		var b = Buffer.alloc(4);
-		b.writeUInt32BE(jsb.length, 0);
-
-		b = Buffer.concat([b, jsb]);
-
-		//console.log('client write', b.length, JSON.stringify(j));
-		selected_client.write(b);
-
-	}.bind({dt_object: this}), 1);
-
-	// clear all of these on a socket disconnect
-	if (selected_client.client_send_waiters === undefined) {
-		selected_client.client_send_waiters = [];
+	// each client increments send_msn to know the order of the messages
+	if (selected_client.send_msn === undefined) {
+		selected_client.send_msn = 0;
+	} else {
+		selected_client.send_msn++;
 	}
-	selected_client.client_send_waiters.push(client_send_waiter);
+
+	//console.log('client_send() message', selected_client.send_msn, j.type);
+
+	// send to a server
+	// as the client
+
+	// add the client id to the message (socket id)
+	j.client_id = selected_client.client_id
+
+	// add the message msn
+	j.msn = selected_client.send_msn;
+
+	// expects a JSON object
+
+	// encrypt the JSON object string
+	var jsb = this.encrypt(Buffer.from(JSON.stringify(j)));
+
+	//console.log('client_send() length', jsb.length);
+
+	// write the length
+	var b = Buffer.alloc(4);
+	b.writeUInt32BE(jsb.length, 0);
+
+	b = Buffer.concat([b, jsb]);
+
+	//console.log('client write', b.length, JSON.stringify(j));
+	selected_client.write(b);
 
 }
 
@@ -2469,15 +2460,11 @@ dt.prototype.defragment_node = function(node) {
 
 	}.bind({dt_object: this}));
 
-	// set the msn
-	client.msn = -1;
-	client.prev_msn = -2;
-
-	// set client_send_waiters
-	client.client_send_waiters = [];
-
 	// set client timeout of the socket
 	client.setTimeout(this.timeout);
+
+	// set the recv_msn
+	client.recv_msn = 0;
 
 	var data = Buffer.alloc(0);
 	var data_len = 0;
@@ -2498,9 +2485,14 @@ dt.prototype.defragment_node = function(node) {
 				// update the client_id (socket id) sent from the server
 				//console.log('defragment client response with client id', j.client_id);
 				client.client_id = j.client_id;
-				// update the msn
-				client.prev_msn = Number(client.msn);
-				client.msn = j.msn;
+
+				if (client.recv_msn !== j.msn) {
+					// disconnect per out of sequence msn
+					console.log('disconnecting from server per out of sequence msn');
+					client.end();
+					return;
+				}
+				client.recv_msn++;
 
 				if (j.type === 'defragment_greater_count') {
 
@@ -2574,14 +2566,6 @@ dt.prototype.defragment_node = function(node) {
 	client.on('close', function() {
 
 		//console.log('disconnected from node in defragment_node()', node.ip, node.port, node.node_id);
-
-		// clear all the client send waiters
-		var c = client.client_send_waiters.length - 1;
-		while (c >= 0) {
-			clearInterval(client.client_send_waiters[c]);
-			client.client_send_waiters.splice(c, 1);
-			c--;
-		}
 
 	}.bind({dt_object: this}));
 
