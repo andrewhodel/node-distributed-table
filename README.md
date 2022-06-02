@@ -81,3 +81,7 @@ Any number of DNS servers can be replicated by being nodes of a dt network by us
 Maintain any number of dt nodes on the Internet and start your master node to replicate and store all of your files on every node.
 
 Store the file data in dt objects as base64 strings, compress it if you need to.
+
+# donate
+
+BTC 39AXGv2up1Yk5QNeLHfQra815jaYv9HcJk
