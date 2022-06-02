@@ -227,17 +227,42 @@ var dt = function(config) {
 
 						var updated = false;
 						var c = 0;
+						while (c < this.dt_object.distant_nodes.length) {
+							var n = this.dt_object.nodes[c];
+
+							if (n.node_id === vm.node_id || (n.ip === node_ip && n.port === vm.listening_port)) {
+								// this is the node that connected and it is in distant_nodes
+								// update the conn object on the node
+								this.dt_object.nodes[c].conn = conn
+								// set the node object on conn
+								conn.node = this.dt_object.nodes[c];
+								updated = true;
+							}
+
+							c++;
+
+						}
+
+						c = 0;
 						// tell all other clients that this node connected
 						while (c < this.dt_object.nodes.length) {
 
 							var n = this.dt_object.nodes[c];
 
 							if (n.node_id === vm.node_id || (n.ip === node_ip && n.port === vm.listening_port)) {
+
+								if (updated === true) {
+									// remove the distant_nodes node and use this one in nodes
+									conn.node.remove = true;
+								}
+
+								// this is the node that connected
 								// update the conn object on the node
 								this.dt_object.nodes[c].conn = conn
 								// set the node object on conn
 								conn.node = this.dt_object.nodes[c];
 								updated = true;
+
 							} else if (this.dt_object.node_connected(n) === true) {
 								// tell client nodes that a node connected with a distant_node message
 								this.dt_object.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
@@ -264,6 +289,8 @@ var dt = function(config) {
 							var n = this.dt_object.nodes[c];
 							if (n.connected_as_primary === true) {
 								// the primary client is connected to a server
+							} else if (n.node_id === vm.node_id || (n.ip === node_ip && n.port === vm.listening_port)) {
+								// this is the node that connected
 							} else {
 								this.dt_object.server_send(conn, {type: 'distant_node', ip: n.ip, port: n.port, node_id: n.node_id});
 							}
@@ -1249,7 +1276,7 @@ dt.prototype.clean = function() {
 			}
 
 			if (this.dt_object.debug >= 1) {
-				console.log('distant_node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count);
+				console.log('distant_node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count + ', last_data_time: ' + ((Date.now() - n.last_data_time) / 1000) + 's ago');
 			}
 
 			if (n.last_test_success !== null) {
@@ -1304,7 +1331,7 @@ dt.prototype.clean = function() {
 			}
 
 			if (this.dt_object.debug >= 1) {
-				console.log('node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count);
+				console.log('node connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count + ', last_data_time: ' + ((Date.now() - n.last_data_time) / 1000) + 's ago');
 			}
 
 			// initial nodes are not subject to unreachable
