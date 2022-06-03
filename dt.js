@@ -252,10 +252,9 @@ var dt = function(config) {
 						this.dt_object.client_send({type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
 
 						if (updated === false) {
-							// create the node
-							conn.node = {ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now(), last_test_success: null, last_data_time: null};
-							// add node to this.nodes
-							this.dt_object.nodes.push(conn.node);
+							// add new node to this.nodes
+							var i = this.dt_object.nodes.push({ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now(), last_test_success: null, last_data_time: null});
+							conn.node = this.dt_object.nodes[i];
 						}
 
 						// send the known nodes as type: distant_node
