@@ -1128,9 +1128,11 @@ dt.prototype.clean = function() {
 			// initial nodes are not subject to unreachable
 			// their address is written into the initial list before node launch
 			// the node that is connected with the primary client is also not subject to unreachable
-			if (n.last_test_success !== null && n.origin_type !== 'initial' && n.connected_as_primary !== true) {
+			if (n.last_test_success !== null && n.origin_type !== 'initial' && n.connected_as_primary !== true && this.dt_object.node_connected(n) === false) {
 
 				// remove any node that has not had a last_test_success in dt.purge_node_wait
+				// is not initial
+				// and is not connected
 				if (Date.now() - n.last_test_success > this.dt_object.purge_node_wait) {
 					this.dt_object.nodes.splice(l, 1);
 					l--;
@@ -1519,7 +1521,9 @@ dt.prototype.valid_server_message = function(conn, j) {
 		this.server_send(conn, {type: 'pong', node_id: this.node_id, ts: j.ts});
 
 		// set the last ping time
-		conn.node.last_ping_time = Date.now();
+		if (conn.node !== undefined) {
+			conn.node.last_ping_time = Date.now();
+		}
 
 		// set the rtt between this server and the client from j.previous_rtt
 		// this is calculated by the client, and all nodes in the network are trusted by using the same key
