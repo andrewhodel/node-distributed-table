@@ -1138,8 +1138,14 @@ dt.prototype.clean = function() {
 					continue;
 				}
 
+			} else if (n.test_failures > 10) {
+				// remove node that has too many test_failures
+				this.dt_object.nodes.splice(l, 1);
+				l--;
+				continue;
 			}
 
+			// the node has not been removed
 			if (n.connected_as_primary === false) {
 				// this is not the node that is connected via the primary client
 
@@ -1150,15 +1156,15 @@ dt.prototype.clean = function() {
 
 				} else if (n.test_status === 'failed') {
 
-					if (n.test_failures <= 5) {
-						// retest node
-						this.dt_object.test_node(n);
-					} else if (n.origin_type === 'initial') {
+					if (n.origin_type === 'initial') {
 						// reset initial nodes test_status so they are available in the connection routine when reachable
 						n.test_status = 'pending';
+					} else {
+						// retest nodes that have not been removed
+						this.dt_object.test_node(n);
 					}
 
-				} else if (n.test_status === 'success' && n.last_test_success !== null) {
+				} else if (n.test_status === 'success') {
 
 					// if dt.retest_wait_period has passed since the last test
 					// set the status to pending
