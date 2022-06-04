@@ -89,7 +89,6 @@ var dt = function(config) {
 	this.active_test_count = 0;
 
 	// advanced/non configurable options
-	this.max_test_failures = 5;
 	this.max_ping_count = 20;
 	this.clean_interval = 5000;
 	// if there is a better node to use as the primary, wait this long before disconnecting the existing primary client
@@ -1154,16 +1153,12 @@ dt.prototype.clean = function() {
 					if (n.test_failures <= 5) {
 						// retest node
 						this.dt_object.test_node(n);
-					} else if (n.origin_type !== 'initial') {
-						// if the node has failed this many times, remove it
-						// initial nodes always stay
-						this.dt_object.nodes.splice(l, 1);
 					} else if (n.origin_type === 'initial') {
 						// reset initial nodes test_status so they are available in the connection routine when reachable
 						n.test_status = 'pending';
 					}
 
-				} else if (n.test_status === 'success') {
+				} else if (n.test_status === 'success' && n.last_test_success !== null) {
 
 					// if dt.retest_wait_period has passed since the last test
 					// set the status to pending
