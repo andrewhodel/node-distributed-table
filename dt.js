@@ -107,7 +107,7 @@ var dt = function(config) {
 	this.defrag_wait_period = 1000 * 60 * 10;
 	// debug settings, each shows itself and all those below
 	// 0	no debugging output
-	// 1	show nodes
+	// 1	show nodes and primary client connects
 	// 2	show messages and what node they are from
 	this.debug = 0;
 
@@ -421,7 +421,9 @@ dt.prototype.connect = function() {
 		clearInterval(waiter);
 
 		// connect to a node
-		//console.log('\ndt.connect() total nodes', this.dt_object.nodes.length);
+		if (this.dt_object.debug >= 1) {
+			console.log('primary client connect, total nodes', this.dt_object.nodes.length);
+		}
 
 		// find the node with the lowest primary_connection_failures
 		// this ensures that the primary connection is to a stable node
@@ -513,14 +515,18 @@ dt.prototype.connect = function() {
 		if (this.dt_object.primary_node === null) {
 			// this node has no nodes to connect to
 			// it should stay on to allow nodes to connect to it
-			//console.log('no nodes ready for connection');
+			if (this.dt_object.debug >= 1) {
+				console.log('primary client connect, no nodes ready for connection');
+			}
 
 			// try again
 			this.dt_object.connect();
 			return;
 		}
 
-		//console.log('\n\n\n\n\n\n\nbest node for primary client connection', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id, 'primary_connection_failures: ' + this.dt_object.primary_node.primary_connection_failures, 'average rtt: ' + this.dt_object.rtt_avg(this.dt_object.primary_node.rtt_array));
+		if (this.dt_object.debug >= 1) {
+			console.log('primary client connect', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id, 'primary_connection_failures: ' + this.dt_object.primary_node.primary_connection_failures, 'average rtt: ' + this.dt_object.rtt_avg(this.dt_object.primary_node.rtt_array));
+		}
 
 		// ping the server
 		var primary_client_ping;
