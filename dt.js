@@ -561,7 +561,7 @@ dt.prototype.connect = function() {
 			this.dt_object.client.destroy();
 		}
 
-		this.dt_object.client = net.connect({port: this.dt_object.primary_node.port, host: this.dt_object.primary_node.ip, keepAlive: true}, function() {
+		this.dt_object.client = net.connect({port: this.dt_object.primary_node.port, host: this.dt_object.primary_node.ip, keepAlive: false}, function() {
 			// 'connect' listener.
 			//console.log('primary client connected to', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
 
@@ -852,7 +852,7 @@ dt.prototype.test_node = function(node) {
 	var ping;
 	var received_pings = 0;
 
-	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
+	var client = net.connect({port: node.port, host: node.ip, keepAlive: false}, function() {
 		// 'connect' listener.
 		//console.log('test_node() connected', node.ip, node.port);
 
@@ -2327,7 +2327,7 @@ dt.prototype.defragment_node = function(node) {
 	node.defrag_count++;
 	node.last_defrag = Date.now();
 
-	var client = net.connect({port: node.port, host: node.ip, keepAlive: true}, function() {
+	var client = net.connect({port: node.port, host: node.ip, keepAlive: false}, function() {
 		// 'connect' listener.
 		//console.log('defragment_node() connected', node.ip, node.port);
 
