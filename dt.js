@@ -150,6 +150,18 @@ var dt = function(config) {
 		// create the client id
 		conn.client_id = crypto.randomUUID();
 
+		conn.node_connecting = true;
+
+		// make sure the open response has been received within the timeout
+		setTimeout(function() {
+
+			if (conn.node_connecting === true) {
+				// disconnect if untrue
+				conn.end();
+			}
+
+		}, this.dt_object.timeout);
+
 		// set the recv_msn
 		conn.recv_msn = 0;
 
@@ -210,16 +222,18 @@ var dt = function(config) {
 					// type open is the first message
 					if (vm.type === 'open') {
 
+						// node is no longer connecting
+						conn.node_connecting = false;
+
 						// this is an authorized connection
 						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
 
 						// this is a directly connected node that is a client of this server
+						// send an open response so the node's primary client can set the node_id
+						this.dt_object.server_send(conn, {type: 'open', node_id: this.dt_object.node_id});
 
 						// get the node ip address
 						var node_ip = this.dt_object.clean_remote_address(conn.remoteAddress);
-
-						// add the node_id to the conn object
-						conn.node_id = vm.node_id;
 
 						//console.log(vm.listening_port + ' opened a client connection\n\n');
 
@@ -237,6 +251,11 @@ var dt = function(config) {
 								this.dt_object.nodes[c].conn = conn
 								// set the node object on conn
 								conn.node = this.dt_object.nodes[c];
+								// update the last_data_time
+								conn.node.last_data_time = Date.now();
+								// set the node_id
+								conn.node.node_id = vm.node_id;
+
 								updated = true;
 
 							} else if (this.dt_object.node_connected(n) === true) {
@@ -252,7 +271,7 @@ var dt = function(config) {
 
 						if (updated === false) {
 							// add new node to this.nodes
-							var i = this.dt_object.nodes.push({ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now(), last_test_success: null, last_data_time: null});
+							var i = this.dt_object.nodes.push({ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now(), last_test_success: null, last_data_time: Date.now()});
 							conn.node = this.dt_object.nodes[i];
 						}
 
@@ -546,6 +565,23 @@ dt.prototype.connect = function() {
 			// 'connect' listener.
 			//console.log('primary client connected to', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
 
+			// set last_data_time
+			this.dt_object.primary_node.last_data_time = Date.now();
+
+			this.dt_object.client.node_connecting = true;
+
+			// make sure the open response has been received within the timeout
+			setTimeout(function() {
+
+				if (this.dt_object.client !== undefined) {
+					if (this.dt_object.client.node_connecting === true) {
+						// disconnect if untrue
+						this.dt_object.client.end();
+					}
+				}
+
+			}.bind({dt_object: this.dt_object}), this.dt_object.timeout);
+
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
 
@@ -650,8 +686,11 @@ dt.prototype.connect = function() {
 					// when there is a valid connection
 					if (vm.type === 'open') {
 
-						// this is an authorized connection
-						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
+						// set the node_id
+						this.dt_object.primary_node.node_id = vm.node_id;
+
+						// set connecting = false on the client
+						this.dt_object.client.node_connecting = false;
 
 						// send the connected nodes
 						var cn = [];
@@ -1140,6 +1179,17 @@ dt.prototype.clean = function() {
 				continue;
 			}
 
+			if (n.conn !== undefined) {
+				// there is a connection object
+				if (n.conn.node_connecting === false) {
+					// the node has finished connecting
+					if (this.dt_object.node_connected(n) === false) {
+						// the node is not connected, close the connection so it reconnects
+						n.conn.end();
+					}
+				}
+			}
+
 			if (this.dt_object.debug >= 1) {
 				console.log('## connected: ' + this.dt_object.node_connected(n) + ', connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count + ', last_data_time: ' + ((Date.now() - n.last_data_time) / 1000) + 's ago');
 			}
@@ -1546,7 +1596,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 	} else if (j.type === 'ping') {
 
 		// respond with pong
-		this.server_send(conn, {type: 'pong', node_id: this.node_id, ts: j.ts});
+		this.server_send(conn, {type: 'pong', ts: j.ts});
 
 		// set the last ping time
 		// ping can arrive before the response to open is received
@@ -1601,7 +1651,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 				var n = this.nodes[c];
 				if (n.connected_as_primary === true) {
 					// the primary client is connected to a server
-				} else if (n.node_id !== conn.node_id) {
+				} else if (n.node_id !== conn.node.node_id) {
 					// not the one that sent it
 					if (this.node_connected(n) === true) {
 						//console.log('relaying distant_node to a client');
@@ -1646,7 +1696,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 			var n = this.nodes[c];
 			if (n.connected_as_primary === true) {
 				// the primary client is connected to a server
-			} else if (n.node_id !== conn.node_id) {
+			} else if (n.node_id !== conn.node.node_id) {
 				// not the one that sent it
 				if (this.node_connected(n) === true) {
 					this.server_send(n.conn, j, n);
@@ -1723,7 +1773,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 		var c = 0;
 		while (c < this.nodes.length) {
 			// except the one that sent it
-			if (this.nodes[c].node_id !== conn.node_id) {
+			if (this.nodes[c].node_id !== conn.node.node_id) {
 				if (this.node_connected(this.nodes[c]) === true) {
 					this.server_send(this.nodes[c].conn, {type: 'add_object', object: j.object});
 				}
@@ -1822,9 +1872,6 @@ dt.prototype.valid_primary_client_message = function(j) {
 			// keep the latest dt.max_ping_count by removing the first and oldest
 			this.primary_node.rtt_array.shift();
 		}
-
-		// update the server's node_id
-		this.primary_node.node_id = j.node_id;
 
 	} else if (j.type === 'distant_node') {
 		// a client node sent a distant node
