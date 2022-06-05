@@ -1320,6 +1320,12 @@ dt.prototype.server_send = function(conn, j) {
 	// add the msn from the conn object that the server stores for the client
 	j.msn = conn.send_msn;
 
+	// add a random length string of random data
+	// if a network is blocking by known length to create an unknown problem
+	// it would be resolved by the fragment list being of random length
+	// but this would be faster at the expense of a small number of bytes per message
+	j.rl = crypto.randomBytes(Math.random() * 253).toString('hex');
+
 	// expects a JSON object
 
 	// encrypt the JSON object string
@@ -1373,6 +1379,12 @@ dt.prototype.client_send = function(j, non_primary_client=null) {
 
 	// add the message msn
 	j.msn = selected_client.send_msn;
+
+	// add a random length string of random data
+	// if a network is blocking by known length to create an unknown problem
+	// it would be resolved by the fragment list being of random length
+	// but this would be faster at the expense of a small number of bytes per message
+	j.rl = crypto.randomBytes(Math.random() * 253).toString('hex');
 
 	// expects a JSON object
 
