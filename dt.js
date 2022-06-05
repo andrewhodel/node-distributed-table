@@ -1543,17 +1543,20 @@ dt.prototype.valid_server_message = function(conn, j) {
 		this.server_send(conn, {type: 'pong', node_id: this.node_id, ts: j.ts});
 
 		// set the last ping time
+		// ping can arrive before the response to open is received
+		// when the conn.node object is not yet defined
 		if (conn.node !== undefined) {
 			conn.node.last_ping_time = Date.now();
-		}
 
-		// set the rtt between this server and the client from j.previous_rtt
-		// this is calculated by the client, and all nodes in the network are trusted by using the same key
-		conn.node.rtt = j.previous_rtt;
-		conn.node.rtt_array.push(j.previous_rtt);
-		if (conn.node.rtt_array.length > this.max_ping_count) {
-			// keep the latest dt.max_ping_count by removing the first
-			conn.node.rtt_array.shift();
+			// set the rtt between this server and the client from j.previous_rtt
+			// this is calculated by the client, and all nodes in the network are trusted by using the same key
+			conn.node.rtt = j.previous_rtt;
+			conn.node.rtt_array.push(j.previous_rtt);
+			if (conn.node.rtt_array.length > this.max_ping_count) {
+				// keep the latest dt.max_ping_count by removing the first
+				conn.node.rtt_array.shift();
+			}
+
 		}
 
 	} else if (j.type === 'distant_node') {
