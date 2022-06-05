@@ -745,6 +745,8 @@ dt.prototype.connect = function() {
 				console.log('primary client disconnected from server node', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
 			}
 
+			this.dt_object.client = undefined;
+
 			// reconnect to the network
 			this.dt_object.connect();
 
@@ -1024,6 +1026,16 @@ dt.prototype.clean = function() {
 
 	setInterval(function() {
 
+		if (this.dt_object.client) {
+			// if the primary client is offline (has not sent data within the online threshold), disconnect it
+			// this is because the remote side can open a socket then the network can block the traffic
+			// and without the next test, there would be no determination of the node being offline
+			if (this.dt_object.node_connected(this.dt_object.primary_node) === false) {
+				this.dt_object.client.end();
+			}
+		}
+
+		// show debug output
 		if (this.dt_object.debug >= 1) {
 			console.log('\nnode id: ' + this.dt_object.node_id);
 			console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
