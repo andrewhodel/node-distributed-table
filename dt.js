@@ -868,6 +868,8 @@ dt.prototype.test_node = function(node) {
 				if (client.recv_msn !== j.msn) {
 					// disconnect per out of sequence msn
 					console.log('disconnecting from server per out of sequence msn');
+					node.test_status = 'failed'
+					node.test_failures++;
 					client.end();
 					return;
 				}
@@ -1152,6 +1154,13 @@ dt.prototype.clean = function() {
 				if (n.test_status === 'pending' && this.dt_object.node_connected(n) === false) {
 
 					// start a latency test on this node that is not connected
+					this.dt_object.test_node(n);
+
+				} else if (n.test_status === 'current' && Date.now() - n.test_start > this.dt_object.retest_wait_period * 2) {
+
+					// this node started a test but did not finish it within the retest wait period * 2
+					// the socket can be opened then closed from the remote side without error or messages
+					// start another latency test
 					this.dt_object.test_node(n);
 
 				} else if (n.test_status === 'failed') {
