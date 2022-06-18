@@ -554,6 +554,10 @@ dt.prototype.connect = function() {
 
 		this.dt_object.primary_node.primary_client_connect_count++;
 
+		// set data_since_last_pong
+		this.dt_object.primary_node.data_since_last_pong = 0;
+		this.dt_object.primary_node.messages_since_last_pong = 0;
+
 		// set last_test_success to null so the node isn't disconnected for not being tested
 		this.dt_object.primary_node.last_test_success = null;
 
@@ -1876,6 +1880,28 @@ dt.prototype.valid_primary_client_message = function(j) {
 		// calculate the rtt between this node and the server it is connected to
 		var rtt = Date.now() - j.ts;
 
+		// the primary client may have been receving a large data message
+		// before this message
+		// a ping message is ~400 bytes with random length data
+		var normal_ping_size = 400;
+
+		if (this.primary_node.data_since_last_pong > normal_ping_size * this.primary_node.messages_since_last_pong) {
+
+			// the previous average of this host
+			var avg_ping = this.rtt_avg(this.primary_node.rtt_array);
+
+			// the difference in size between a normal ping and the messages between this one and the last
+			var ping_wait_size_diff = this.primary_node.data_since_last_pong - normal_ping_size;
+
+			// rtt must be recalculated based on the size difference and normal_ping_size
+			// this considers the data rate in the latency calculation while not requiring an extra socket or channel as ICMP uses
+			rtt = avg_ping / (ping_wait_size_diff / normal_ping_size);
+
+		}
+
+		this.primary_node.messages_since_last_pong = 0;
+		this.primary_node.data_since_last_pong = 0;
+
 		this.primary_node.rtt = rtt;
 		//console.log(rtt + 'ms RTT to server');
 
@@ -2073,6 +2099,11 @@ dt.prototype.valid_primary_client_message = function(j) {
 		this.primary_node.object_hashes_received = true;
 
 	}
+
+	// set the size of this message
+	this.primary_node.messages_since_last_pong += 1;
+	this.primary_node.data_since_last_pong += JSON.stringify(j).length;
+	//console.log('primary_node.data_since_last_pong', this.primary_node.data_since_last_pong);
 
 }
 
