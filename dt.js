@@ -1887,15 +1887,17 @@ dt.prototype.valid_primary_client_message = function(j) {
 
 		if (this.primary_node.data_since_last_pong > normal_ping_size * this.primary_node.messages_since_last_pong) {
 
-			// the previous average of this host
-			var avg_ping = this.rtt_avg(this.primary_node.rtt_array);
-
 			// the difference in size between a normal ping and the messages between this one and the last
 			var ping_wait_size_diff = this.primary_node.data_since_last_pong - normal_ping_size;
 
 			// rtt must be recalculated based on the size difference and normal_ping_size
 			// this considers the data rate in the latency calculation while not requiring an extra socket or channel as ICMP uses
-			rtt = avg_ping / (ping_wait_size_diff / normal_ping_size);
+			//
+			// set rtt = (rtt with the wait of the extra messages) divided by (diff / normal size)
+			rtt = rtt / (ping_wait_size_diff / normal_ping_size);
+
+			// then divide by the number of messages since last pong
+			rtt = rtt / this.primary_node.messages_since_last_pong;
 
 		}
 
