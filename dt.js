@@ -579,6 +579,8 @@ dt.prototype.connect = function() {
 
 				if (this.dt_object.client !== undefined) {
 					if (this.dt_object.client.node_connecting === true) {
+						// increment primary_connection_failures
+						this.dt_object.primary_node.primary_connection_failures++;
 						// disconnect if untrue
 						this.dt_object.client.end();
 					}
@@ -679,6 +681,8 @@ dt.prototype.connect = function() {
 					this.dt_object.client.client_id = vm.client_id;
 
 					if (this.dt_object.client.recv_msn !== vm.msn) {
+						// increment primary_connection_failures
+						this.dt_object.primary_node.primary_connection_failures++;
 						// disconnect per out of sequence msn
 						console.log('disconnecting from server per out of sequence msn');
 						this.dt_object.client.end();
