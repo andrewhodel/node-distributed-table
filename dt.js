@@ -700,6 +700,12 @@ dt.prototype.connect = function() {
 						// set connecting = false on the client
 						this.dt_object.client.node_connecting = false;
 
+						if (this.dt_object.primary_node.primary_connection_failures > 0) {
+							// a successful open response to the primary client should decrement the primary_connection_failures
+							// if it isn't already perfect
+							this.dt_object.primary_node.primary_connection_failures--;
+						}
+
 						// send the connected nodes
 						var cn = [];
 
