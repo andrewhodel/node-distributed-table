@@ -580,7 +580,7 @@ dt.prototype.connect = function() {
 				if (this.dt_object.client !== undefined) {
 					if (this.dt_object.client.node_connecting === true) {
 						// increment primary_connection_failures
-						this.dt_object.primary_node.primary_connection_failures++;
+						this.dt_object.primary_node.primary_connection_failures += 3;
 						// disconnect if untrue
 						this.dt_object.client.end();
 					}
@@ -682,7 +682,7 @@ dt.prototype.connect = function() {
 
 					if (this.dt_object.client.recv_msn !== vm.msn) {
 						// increment primary_connection_failures
-						this.dt_object.primary_node.primary_connection_failures++;
+						this.dt_object.primary_node.primary_connection_failures += 3;
 						// disconnect per out of sequence msn
 						console.log('disconnecting from server per out of sequence msn');
 						this.dt_object.client.end();
@@ -818,7 +818,7 @@ dt.prototype.connect = function() {
 			this.dt_object.primary_node.connected_as_primary = false;
 
 			// a connection timeout is a failure
-			this.dt_object.primary_node.primary_connection_failures++;
+			this.dt_object.primary_node.primary_connection_failures += 3;
 
 		}.bind({dt_object: this.dt_object}));
 
@@ -829,7 +829,7 @@ dt.prototype.connect = function() {
 			this.dt_object.primary_node.connected_as_primary = false;
 
 			// a connection error is a failure
-			this.dt_object.primary_node.primary_connection_failures++;
+			this.dt_object.primary_node.primary_connection_failures += 3;
 
 		}.bind({dt_object: this.dt_object}));
 
