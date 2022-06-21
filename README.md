@@ -84,8 +84,11 @@ Store the file data in dt objects as base64 strings, compress it if you need to.
 
 # donate
 
+## Bitcoin
 BTC 39AXGv2up1Yk5QNeLHfQra815jaYv9HcJk
 
+## Credit Card
 [![Paypal Donation](/img/paypal_donate_button.gif "Paypal Donation")](https://www.paypal.com/donate/?hosted_button_id=5XCWCGPC2FBU6)
 
+## Paypal by QR Code
 ![Paypal QR Donation](/img/paypal_donate_qr.png "Paypal QR Donation")
