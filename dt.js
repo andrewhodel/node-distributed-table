@@ -90,7 +90,10 @@ var dt = function(config) {
 
 	// advanced/non configurable options
 	this.max_ping_count = 20;
+	// run the clean routing this often
 	this.clean_interval = 5000;
+	// send an object_hashes to other nodes this often
+	this.object_hashes_interval = 1000 * 60 * 5;
 	// if there is a better node to use as the primary, wait this long before disconnecting the existing primary client
 	this.better_primary_wait = 1000 * 60 * 20;
 	// a node with a latency lower than this * the primary node latency avg is classified as better
@@ -1311,6 +1314,50 @@ dt.prototype.clean = function() {
 		}
 
 	}.bind({dt_object: this}), this.clean_interval);
+
+	setInterval(function() {
+		// send continual object_hashes messages via the primary client and to all connected nodes
+		// at this interval (dt.object_hashes_interval)
+
+		/*
+		A sends object to B and C that is 500MB.
+
+		A then sends a remove_object message.
+
+		B receives 500mb object and the remove_object message for it then sends a remove_object message to C while the 500mb object is still being sent from A to C.
+
+		C does remove_object from B but does not know it has not received it because it is still being received from A.
+
+		The link between A and C is disconnected before A sends the remove_object message to C because another message being sent has not been fully delivered.
+
+		Now C will store and forward the message that should have been removed.
+
+		This is why an object_hashes message must be sent at the dt.object_hashes_interval.  To ensure that a diff is continually making sure the data is valid and confirmed.
+
+		This prevents and always eventually removes any object that should be removed regardless of network conditions.
+		*/
+
+		// send object_hashes
+		var o_hashes = [];
+		var n = 0;
+		while (n < this.dt_object.objects.length) {
+			// add the sha256 checksum to the array
+			o_hashes.push(this.dt_object.objects[n][0]);
+			n++;
+		}
+
+		this.dt_object.client_send({type: 'object_hashes', object_hashes: o_hashes});
+
+		// send to all the connected clients
+		var c = 0;
+		while (c < this.dt_object.nodes.length) {
+			if (this.dt_object.node_connected(this.dt_object.nodes[c]) === true) {
+				this.dt_object.server_send(this.dt_object.nodes[c].conn, {type: 'object_hashes', object_hashes: o_hashes});
+			}
+			c++;
+		}
+
+	}.bind({dt_object: this}), this.object_hashes_interval);
 
 }
 
