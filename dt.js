@@ -1406,7 +1406,7 @@ dt.prototype.server_send = function(conn, j) {
 		return;
 	}
 
-	if (conn.node.node_id === undefined) {
+	if (conn.node.node_id === null) {
 		// conn.node.node_id has not yet been set
 		console.log('server_send() tried to send before conn.node.node_id has been sent', j.type);
 		return;
@@ -1635,6 +1635,9 @@ dt.prototype.node_connected = function(node) {
 	// returns true or false
 	if (node === undefined) {
 		//console.log('node testing connected status undefined');
+		return false;
+	} else if (node.node_id === null) {
+		// node_id has not yet been set
 		return false;
 	} else if (node.last_data_time === null) {
 		//console.log('node testing connected status last_data_time=null');
