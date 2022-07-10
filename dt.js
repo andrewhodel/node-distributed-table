@@ -1400,6 +1400,18 @@ dt.prototype.server_send = function(conn, j) {
 		return;
 	}
 
+	if (conn.node === undefined) {
+		// conn.node has not yet been set
+		console.log('server_send() tried to send before conn.node has been sent', j.type);
+		return;
+	}
+
+	if (conn.node.node_id === undefined) {
+		// conn.node.node_id has not yet been set
+		console.log('server_send() tried to send before conn.node.node_id has been sent', j.type);
+		return;
+	}
+
 	// add the random client id of the socket to the message
 	j.client_id = conn.client_id;
 
