@@ -1397,16 +1397,26 @@ dt.prototype.server_send = function(conn, j) {
 		return;
 	}
 
-	if (conn.node === undefined) {
-		// conn.node has not yet been set
-		console.log('server_send() tried to send before conn.node has been sent', j.type);
-		return;
-	}
+	if (j.type === 'is_self') {
+		// always send an is_self message
+		// it is a message saying you are connected to yourself
 
-	if (conn.node.node_id === null) {
-		// conn.node.node_id has not yet been set
-		console.log('server_send() tried to send before conn.node.node_id has been sent', j.type);
-		return;
+	} else {
+
+		// make sure the node has been identified
+
+		if (conn.node === undefined) {
+			// conn.node has not yet been set
+			console.log('server_send() tried to send before conn.node has been sent', j.type);
+			return;
+		}
+
+		if (conn.node.node_id === null) {
+			// conn.node.node_id has not yet been set
+			console.log('server_send() tried to send before conn.node.node_id has been sent', j.type);
+			return;
+		}
+
 	}
 
 	// add the random client id of the socket to the message
