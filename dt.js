@@ -169,9 +169,6 @@ var dt = function(config) {
 		// set the recv_msn
 		conn.recv_msn = 0;
 
-		// send the client id
-		this.dt_object.server_send(conn, {type: 'client_id', client_id: conn.client_id});
-
 		var data = Buffer.alloc(0);
 		var data_len = 0;
 
