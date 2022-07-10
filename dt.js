@@ -231,10 +231,6 @@ var dt = function(config) {
 						// this is an authorized connection
 						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
 
-						// this is a directly connected node that is a client of this server
-						// send an open response so the node's primary client can set the node_id
-						this.dt_object.server_send(conn, {type: 'open', node_id: this.dt_object.node_id});
-
 						// get the node ip address
 						var node_ip = this.dt_object.clean_remote_address(conn.remoteAddress);
 
@@ -242,7 +238,6 @@ var dt = function(config) {
 
 						var updated = false;
 						var c = 0;
-						// tell all other clients that this node connected
 						while (c < this.dt_object.nodes.length) {
 
 							var n = this.dt_object.nodes[c];
@@ -277,6 +272,10 @@ var dt = function(config) {
 							var i = this.dt_object.nodes.push({ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now(), last_test_success: null, last_data_time: Date.now()});
 							conn.node = this.dt_object.nodes[i];
 						}
+
+						// after the local node entry has been updated with the node_id
+						// send an open response so the node's primary client can set the node_id
+						this.dt_object.server_send(conn, {type: 'open', node_id: this.dt_object.node_id});
 
 						// send the known nodes as type: distant_node
 						// to the client that connected
@@ -361,6 +360,13 @@ var dt = function(config) {
 
 				if (data_len === 0) {
 					// first chunk
+
+					if (chunk.length < 4) {
+						// the chunk does not include the length, at least 4 bytes are required
+						ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
+						conn.end();
+						return;
+					}
 
 					// read length
 					data_len = chunk.readUInt32BE(0);
@@ -578,78 +584,80 @@ dt.prototype.connect = function() {
 			this.dt_object.client.node_connecting = true;
 
 			// make sure the open response has been received within the timeout
-			setTimeout(function() {
+			this.dt_object.client_connected_check = setTimeout(function() {
 
-				if (this.dt_object.client !== undefined) {
-					if (this.dt_object.client.node_connecting === true) {
-						// increment primary_connection_failures
-						this.dt_object.primary_node.primary_connection_failures += 3;
-						// disconnect if untrue
-						this.dt_object.client.end();
-					}
+				if (this.dt_object.client.node_connecting === true) {
+					// the node has not finished connecting within the timeout
+					// increment primary_connection_failures
+					this.dt_object.primary_node.primary_connection_failures += 3;
+					// disconnect if untrue
+					this.dt_object.client.end();
+					return;
 				}
+
+				// the node connected within the timeout
+
+				// send once object_hashes is received
+				// a non master node **shall remove any objects that are not in the diff from itself before forwarding objects**
+				primary_client_send_object_hashes = setInterval(function() {
+
+					// if multiple master nodes exist, they must be synchronized before
+					// allowing the master nodes to send their objects
+
+					// they cannot diff because they have no concept of origin time as they could be thousands of years
+					// between message and response while using a different origin time zone and not originating from unix time (random message from unknown source with shared key)
+					//
+					// this is also why origin timestamps are not that useful when you have relative locations
+					// no reason to keep the origin time of every ship (or the memory)
+					// no reason to know the origin time of a ship between two planets each with their own origin time
+					// if you have a historical record of their relative locations
+					//
+					// packetized data reception and decoding is slowed by particles
+					// every on/off stream/laser can be overwritten preventing moving the binary stream from packet data to parallel laser beams
+					// because the timing cannot be reputable
+					//
+					// time exists, but you won't know the origin time (universally applicable) until you have the bounds of the universe to measure upon and room to store the locations of each object
+					// you can always use the node-distributed-table fragment routine to figure out part of it though
+					// https://github.com/andrewhodel/node-distributed-table/issues/2
+					//
+					// or maybe everything in the universe will use seconds forever, it's still a problem of origin time at large distances
+					// with many devices because of the maintainence nightmare that is upgrading atomic clocks
+
+					// you could modify add_object() to save all the data and be able to diff between master nodes, but then you would turn life into data
+					// by needing infinite hard drive space, until the bounds of the universe are defined
+
+					if (this.dt_object.primary_node.object_hashes_received === true || this.dt_object.master === true) {
+						clearInterval(primary_client_send_object_hashes);
+					} else {
+						// non master nodes shall wait until the object hashes are received
+						//console.log('primary client waiting to send object_hashes to server until recieved');
+						return;
+					}
+
+					// send object_hashes
+					var o_hashes = [];
+					var n = 0;
+					while (n < this.dt_object.objects.length) {
+						// add the sha256 checksum to the array
+						o_hashes.push(this.dt_object.objects[n][0]);
+						n++;
+					}
+					this.dt_object.client_send({type: 'object_hashes', object_hashes: o_hashes});
+
+				}.bind({dt_object: this.dt_object}), 200);
+
+				// ping the server
+				// and send the previous rtt
+				primary_client_ping = setInterval(function() {
+
+					this.dt_object.client_send({type: 'ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: this.dt_object.primary_node.rtt});
+
+				}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
 			}.bind({dt_object: this.dt_object}), this.dt_object.timeout);
 
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
-
-			// send once object_hashes is received
-			// a non master node **shall remove any objects that are not in the diff from itself before forwarding objects**
-			primary_client_send_object_hashes = setInterval(function() {
-
-				// if multiple master nodes exist, they must be synchronized before
-				// allowing the master nodes to send their objects
-
-				// they cannot diff because they have no concept of origin time as they could be thousands of years
-				// between message and response while using a different origin time zone and not originating from unix time (random message from unknown source with shared key)
-				//
-				// this is also why origin timestamps are not that useful when you have relative locations
-				// no reason to keep the origin time of every ship (or the memory)
-				// no reason to know the origin time of a ship between two planets each with their own origin time
-				// if you have a historical record of their relative locations
-				//
-				// packetized data reception and decoding is slowed by particles
-				// every on/off stream/laser can be overwritten preventing moving the binary stream from packet data to parallel laser beams
-				// because the timing cannot be reputable
-				//
-				// time exists, but you won't know the origin time (universally applicable) until you have the bounds of the universe to measure upon and room to store the locations of each object
-				// you can always use the node-distributed-table fragment routine to figure out part of it though
-				// https://github.com/andrewhodel/node-distributed-table/issues/2
-				//
-				// or maybe everything in the universe will use seconds forever, it's still a problem of origin time at large distances
-				// with many devices because of the maintainence nightmare that is upgrading atomic clocks
-
-				// you could modify add_object() to save all the data and be able to diff between master nodes, but then you would turn life into data
-				// by needing infinite hard drive space, until the bounds of the universe are defined
-
-				if (this.dt_object.primary_node.object_hashes_received === true || this.dt_object.master === true) {
-					clearInterval(primary_client_send_object_hashes);
-				} else {
-					// non master nodes shall wait until the object hashes are received
-					//console.log('primary client waiting to send object_hashes to server until recieved');
-					return;
-				}
-
-				// send object_hashes
-				var o_hashes = [];
-				var n = 0;
-				while (n < this.dt_object.objects.length) {
-					// add the sha256 checksum to the array
-					o_hashes.push(this.dt_object.objects[n][0]);
-					n++;
-				}
-				this.dt_object.client_send({type: 'object_hashes', object_hashes: o_hashes});
-
-			}.bind({dt_object: this.dt_object}), 200);
-
-			// ping the server
-			// and send the previous rtt
-			primary_client_ping = setInterval(function() {
-
-				this.dt_object.client_send({type: 'ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: this.dt_object.primary_node.rtt});
-
-			}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
 
 		}.bind({dt_object: this.dt_object}));
 
@@ -808,6 +816,10 @@ dt.prototype.connect = function() {
 			}
 
 			this.dt_object.client = undefined;
+
+			// clear the client_connected_check to allow a new one with a reconnect
+			clearInterval(this.dt_object.client_connected_check);
+			this.dt_object.client_connected_check = undefined;
 
 			// reconnect to the network
 			this.dt_object.connect();
