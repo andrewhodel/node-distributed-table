@@ -159,8 +159,9 @@ var dt = function(config) {
 		setTimeout(function() {
 
 			if (conn.node_connecting === true) {
-				// disconnect if untrue
+				// disconnect if the timeout is exceeded while connecting
 				conn.end();
+				return;
 			}
 
 		}, this.dt_object.timeout);
@@ -236,6 +237,7 @@ var dt = function(config) {
 
 						//console.log(vm.listening_port + ' opened a client connection\n\n');
 
+						// set the node_id
 						var updated = false;
 						var c = 0;
 						while (c < this.dt_object.nodes.length) {
@@ -256,16 +258,11 @@ var dt = function(config) {
 
 								updated = true;
 
-							} else if (this.dt_object.node_connected(n) === true) {
-								// tell client nodes that a node connected with a distant_node message
-								this.dt_object.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
+								break;
 							}
+
 							c++;
 						}
-
-						// tell the server node that a node connected with a distant_node message
-						//console.log('sending distant_node to the server');
-						this.dt_object.client_send({type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
 
 						if (updated === false) {
 							// add new node to this.nodes
@@ -276,6 +273,27 @@ var dt = function(config) {
 						// after the local node entry has been updated with the node_id
 						// send an open response so the node's primary client can set the node_id
 						this.dt_object.server_send(conn, {type: 'open', node_id: this.dt_object.node_id});
+
+						var c = 0;
+						while (c < this.dt_object.nodes.length) {
+
+							var n = this.dt_object.nodes[c];
+
+							if (n.node_id === vm.node_id || (n.ip === node_ip && n.port === vm.listening_port)) {
+
+								// this is this node
+
+							} else if (this.dt_object.node_connected(n) === true) {
+								// tell client nodes that a node connected with a distant_node message
+								this.dt_object.server_send(n.conn, {type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
+							}
+
+							c++;
+						}
+
+						// tell the server node that a node connected with a distant_node message
+						//console.log('sending distant_node to the server');
+						this.dt_object.client_send({type: 'distant_node', ip: node_ip, port: vm.listening_port, node_id: vm.node_id});
 
 						// send the known nodes as type: distant_node
 						// to the client that connected
