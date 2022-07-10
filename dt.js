@@ -377,8 +377,8 @@ var dt = function(config) {
 				if (data_len === 0) {
 					// first chunk
 
-					if (chunk.length < 4) {
-						// the chunk does not include the length, at least 4 bytes are required
+					if (chunk.length < 6) {
+						// the chunk is not long enough, it should be at least 4 bytes for the message length and at least 2 bytes for {}
 						ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
 						conn.end();
 						return;
