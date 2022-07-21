@@ -1470,7 +1470,7 @@ dt.prototype.client_send = function(j, non_primary_client=null) {
 		// to be sent as the primary client
 		selected_client = this.client;
 	} else {
-		console.error('client_send() to invalid client object');
+		// the primary client is not connected
 		return;
 	}
 
