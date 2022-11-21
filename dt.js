@@ -587,7 +587,7 @@ dt.prototype.connect = function() {
 		this.dt_object.primary_node.last_test_success = null;
 
 		if (this.dt_object.client !== undefined) {
-			this.dt_object.client.destroy();
+			this.dt_object.client.end();
 		}
 
 		this.dt_object.client = net.connect({port: this.dt_object.primary_node.port, host: this.dt_object.primary_node.ip, keepAlive: false}, function() {
@@ -831,8 +831,6 @@ dt.prototype.connect = function() {
 			if (this.dt_object.debug >= 1) {
 				console.log('primary client disconnected from server node', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
 			}
-
-			this.dt_object.client = undefined;
 
 			// clear the client_connected_check to allow a new one with a reconnect
 			clearInterval(this.dt_object.client_connected_check);
