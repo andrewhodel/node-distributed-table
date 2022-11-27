@@ -1638,7 +1638,7 @@ dt.prototype.xor = function(key, b) {
 dt.prototype.node_connected = function(node) {
 
 	// returns true or false
-	if (node === undefined) {
+	if (node === undefined || node === null) {
 		//console.log('node testing connected status undefined');
 		return false;
 	} else if (node.node_id === null) {
