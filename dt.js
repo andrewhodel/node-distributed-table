@@ -331,8 +331,7 @@ var dt = function(config) {
 					}
 
 				} catch (err) {
-					console.error('error in server with a client authorization', err);
-					console.log(vm);
+					//console.error('error in server with a client authorization', err);
 					// if the decrypted message does not parse into JSON
 					// this is an invalid connection
 					// add an unauthorized attempt to node-ip-ac
@@ -415,7 +414,7 @@ var dt = function(config) {
 				}
 
 			} catch (err) {
-				console.log('socket read error', err);
+				//console.log('socket read error', err);
 			}
 
 		}.bind({dt_object: this.dt_object}));
@@ -425,7 +424,7 @@ var dt = function(config) {
 		});
 
 		conn.on('error', function(err) {
-			console.error('client error', err);
+			//console.error('client error', err);
 		});
 
 	}.bind({dt_object: this}));
@@ -654,7 +653,7 @@ dt.prototype.connect = function() {
 						// increment primary_connection_failures
 						this.dt_object.primary_node.primary_connection_failures += 3;
 						// disconnect per out of sequence msn
-						console.log('disconnecting from server per out of sequence msn');
+						//console.log('disconnecting from server per out of sequence msn');
 						this.dt_object.client.end();
 						return;
 					}
@@ -815,7 +814,7 @@ dt.prototype.connect = function() {
 				}
 
 			} catch (err) {
-				console.log('socket read error', err);
+				//console.log('socket read error', err);
 			}
 
 		}.bind({dt_object: this.dt_object}));
@@ -843,7 +842,7 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('timeout', function() {
 
-			console.error('primary client timeout', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
+			//console.error('primary client timeout', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
 
 			this.dt_object.primary_node.connected_as_primary = false;
 
@@ -854,7 +853,7 @@ dt.prototype.connect = function() {
 
 		this.dt_object.client.on('error', function(err) {
 
-			console.error('primary client socket error', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.connect.node_id, err.toString());
+			//console.error('primary client socket error', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.connect.node_id, err.toString());
 
 			this.dt_object.primary_node.connected_as_primary = false;
 
@@ -958,7 +957,7 @@ dt.prototype.test_node = function(node) {
 
 				if (client.recv_msn !== j.msn) {
 					// disconnect per out of sequence msn
-					console.log('disconnecting from server per out of sequence msn');
+					//console.log('disconnecting from server per out of sequence msn');
 					node.test_status = 'failed'
 					node.test_failures++;
 					client.end();
@@ -1009,7 +1008,7 @@ dt.prototype.test_node = function(node) {
 				}
 
 			} catch (err) {
-				console.error('error with test_node()', err);
+				//console.error('error with test_node()', err);
 				client.end();
 				node.test_status = 'failed';
 				node.test_failures++;
@@ -1066,7 +1065,7 @@ dt.prototype.test_node = function(node) {
 			}
 
 		} catch (err) {
-			console.log('socket read error', err);
+			//console.log('socket read error', err);
 		}
 
 	});
@@ -1083,7 +1082,7 @@ dt.prototype.test_node = function(node) {
 
 	client.on('timeout', function() {
 
-		console.error('timeout connecting to node in test_node()', node.ip, node.port, node.node_id);
+		//console.error('timeout connecting to node in test_node()', node.ip, node.port, node.node_id);
 		node.test_status = 'failed';
 		node.test_failures++;
 
@@ -1091,7 +1090,7 @@ dt.prototype.test_node = function(node) {
 
 	client.on('error', function(err) {
 
-		console.error('error connecting to node in test_node()', node.ip, node.port, node.node_id, err.toString());
+		//console.error('error connecting to node in test_node()', node.ip, node.port, node.node_id, err.toString());
 		node.test_status = 'failed';
 		node.test_failures++;
 
@@ -1403,15 +1402,15 @@ dt.prototype.server_send = function(conn, j) {
 
 		// make sure the node has been identified
 
-		if (conn.node === undefined) {
+		if (conn.node === undefined || conn.node === null) {
 			// conn.node has not yet been set
-			console.log('server_send() tried to send before conn.node has been sent', j.type);
+			//console.log('server_send() tried to send before conn.node has been sent', j.type);
 			return;
 		}
 
 		if (conn.node.node_id === null) {
 			// conn.node.node_id has not yet been set
-			console.log('server_send() tried to send before conn.node.node_id has been sent', j.type);
+			//console.log('server_send() tried to send before conn.node.node_id has been sent', j.type);
 			return;
 		}
 
@@ -1511,30 +1510,6 @@ dt.prototype.client_send = function(j, non_primary_client=null) {
 
 	//console.log('client write', b.length, JSON.stringify(j));
 	selected_client.write(b);
-
-}
-
-dt.prototype.decrypt_clonable = function(b) {
-
-	console.log('decrypting', b);
-
-	var unxor_b = this.unxor(this.key, b);
-
-	console.log('decrypted', unxor_b);
-
-	return unxor_b;
-
-}
-
-dt.prototype.encrypt_clonable = function(b) {
-
-	console.log('encrypting', b);
-
-	var xor_b = this.xor(this.key, b);
-
-	console.log('encrypted', xor_b);
-
-	return xor_b;
 
 }
 
@@ -2518,7 +2493,7 @@ dt.prototype.defragment_node = function(node) {
 
 				if (client.recv_msn !== j.msn) {
 					// disconnect per out of sequence msn
-					console.log('disconnecting from server per out of sequence msn');
+					//console.log('disconnecting from server per out of sequence msn');
 					client.end();
 					return;
 				}
@@ -2534,7 +2509,7 @@ dt.prototype.defragment_node = function(node) {
 				}
 
 			} catch (err) {
-				console.error('error with defragment_node()', err);
+				//console.error('error with defragment_node()', err);
 			}
 
 			// reset data
@@ -2588,7 +2563,7 @@ dt.prototype.defragment_node = function(node) {
 			}
 
 		} catch (err) {
-			console.log('socket read error', err);
+			//console.log('socket read error', err);
 		}
 
 	});
@@ -2601,13 +2576,13 @@ dt.prototype.defragment_node = function(node) {
 
 	client.on('timeout', function() {
 
-		console.error('timeout connecting to node in defragment_node()', node.ip, node.port, node.node_id);
+		//console.error('timeout connecting to node in defragment_node()', node.ip, node.port, node.node_id);
 
 	}.bind({dt_object: this}));
 
 	client.on('error', function(err) {
 
-		console.error('error connecting to node in defragment_node()', node.ip, node.port, node.node_id, err.toString());
+		//console.error('error connecting to node in defragment_node()', node.ip, node.port, node.node_id, err.toString());
 
 	}.bind({dt_object: this}));
 
