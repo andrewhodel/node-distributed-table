@@ -437,7 +437,7 @@ var dt = function(config) {
 	this.server.listen(this.port, function() {
 		//console.log('dt server bound', this.dt_object.port);
 
-		// connect to a node, first attempt after the server is successfully started
+		// lookup and connect to a node, first attempt after the server is successfully started
 		this.dt_object.connect();
 
 		// start clean routine
@@ -457,10 +457,12 @@ dt.prototype.connect = function() {
 	var waiter = setInterval(function() {
 
 		if (Date.now() - start < 1000 * 3) {
-			// waiting
+			// wait 3 seconds to connect
 			return;
 		}
 
+		// the full 3 seconds has elapsed
+		// stop the waiter loop
 		clearInterval(waiter);
 
 		// connect to a node
@@ -562,8 +564,9 @@ dt.prototype.connect = function() {
 				console.log('primary client connect, no nodes ready for connection');
 			}
 
-			// try again
+			// lookup the best node again
 			this.dt_object.connect();
+			// end this connect/lookup loop
 			return;
 		}
 
@@ -584,10 +587,6 @@ dt.prototype.connect = function() {
 
 		// set last_test_success to null so the node isn't disconnected for not being tested
 		this.dt_object.primary_node.last_test_success = null;
-
-		if (this.dt_object.client !== undefined) {
-			this.dt_object.client.end();
-		}
 
 		this.dt_object.client = net.connect({port: this.dt_object.primary_node.port, host: this.dt_object.primary_node.ip, keepAlive: false}, function() {
 			// 'connect' listener.
@@ -835,7 +834,7 @@ dt.prototype.connect = function() {
 			clearInterval(this.dt_object.client_connected_check);
 			this.dt_object.client_connected_check = undefined;
 
-			// reconnect to the network
+			// reconnect to the network with a fresh node lookup
 			this.dt_object.connect();
 
 		}.bind({dt_object: this.dt_object}));
