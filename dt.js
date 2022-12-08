@@ -430,8 +430,8 @@ var dt = function(config) {
 	}.bind({dt_object: this}));
 
 	this.server.on('error', function(err) {
-		console.error(err);
-		process.exit(1);
+		// error
+		//console.error(err);
 	});
 
 	this.server.listen(this.port, function() {
