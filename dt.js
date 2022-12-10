@@ -142,6 +142,14 @@ var dt = function(config) {
 		// 'connection' listener.
 		// this is a new client
 
+		conn.on('close', function() {
+			//console.log('client disconnected');
+		});
+
+		conn.on('error', function(err) {
+			//console.error('client error', err);
+		});
+
 		if (ipac.test_ip_allowed(this.dt_object.ip_ac, conn.remoteAddress) === false) {
 			// this IP address has been blocked by node-ip-ac
 			conn.end();
@@ -419,14 +427,6 @@ var dt = function(config) {
 
 		}.bind({dt_object: this.dt_object}));
 
-		conn.on('close', function() {
-			//console.log('client disconnected');
-		});
-
-		conn.on('error', function(err) {
-			//console.error('client error', err);
-		});
-
 	}.bind({dt_object: this}));
 
 	this.server.on('error', function(err) {
@@ -615,6 +615,49 @@ dt.prototype.connect = function() {
 
 			// send node_id
 			this.dt_object.client_send({type: 'open', node_id: this.dt_object.node_id, listening_port: this.dt_object.port});
+
+		}.bind({dt_object: this.dt_object}));
+
+		this.dt_object.client.on('close', function() {
+
+			// stop pinging
+			clearInterval(primary_client_ping);
+			clearInterval(primary_client_send_object_hashes);
+
+			this.dt_object.primary_node.connected_as_primary = false;
+
+			if (this.dt_object.debug >= 1) {
+				console.log('primary client disconnected from server node', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
+			}
+
+			// clear the client_connected_check to allow a new one with a reconnect
+			clearInterval(this.dt_object.client_connected_check);
+			this.dt_object.client_connected_check = undefined;
+
+			// reconnect to the network with a fresh node lookup
+			this.dt_object.connect();
+
+		}.bind({dt_object: this.dt_object}));
+
+		this.dt_object.client.on('timeout', function() {
+
+			//console.error('primary client timeout', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
+
+			this.dt_object.primary_node.connected_as_primary = false;
+
+			// a connection timeout is a failure
+			this.dt_object.primary_node.primary_connection_failures += 3;
+
+		}.bind({dt_object: this.dt_object}));
+
+		this.dt_object.client.on('error', function(err) {
+
+			//console.error('primary client socket error', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.connect.node_id, err.toString());
+
+			this.dt_object.primary_node.connected_as_primary = false;
+
+			// a connection error is a failure
+			this.dt_object.primary_node.primary_connection_failures += 3;
 
 		}.bind({dt_object: this.dt_object}));
 
@@ -818,49 +861,6 @@ dt.prototype.connect = function() {
 
 		}.bind({dt_object: this.dt_object}));
 
-		this.dt_object.client.on('close', function() {
-
-			// stop pinging
-			clearInterval(primary_client_ping);
-			clearInterval(primary_client_send_object_hashes);
-
-			this.dt_object.primary_node.connected_as_primary = false;
-
-			if (this.dt_object.debug >= 1) {
-				console.log('primary client disconnected from server node', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
-			}
-
-			// clear the client_connected_check to allow a new one with a reconnect
-			clearInterval(this.dt_object.client_connected_check);
-			this.dt_object.client_connected_check = undefined;
-
-			// reconnect to the network with a fresh node lookup
-			this.dt_object.connect();
-
-		}.bind({dt_object: this.dt_object}));
-
-		this.dt_object.client.on('timeout', function() {
-
-			//console.error('primary client timeout', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.primary_node.node_id);
-
-			this.dt_object.primary_node.connected_as_primary = false;
-
-			// a connection timeout is a failure
-			this.dt_object.primary_node.primary_connection_failures += 3;
-
-		}.bind({dt_object: this.dt_object}));
-
-		this.dt_object.client.on('error', function(err) {
-
-			//console.error('primary client socket error', this.dt_object.primary_node.ip, this.dt_object.primary_node.port, this.dt_object.connect.node_id, err.toString());
-
-			this.dt_object.primary_node.connected_as_primary = false;
-
-			// a connection error is a failure
-			this.dt_object.primary_node.primary_connection_failures += 3;
-
-		}.bind({dt_object: this.dt_object}));
-
 	}.bind({dt_object: this}), 200);
 
 }
@@ -922,6 +922,32 @@ dt.prototype.test_node = function(node) {
 			this.dt_object.client_send({type: 'test_ping', node_id: this.dt_object.node_id, ts: Date.now(), previous_rtt: node.rtt}, client);
 
 		}.bind({dt_object: this.dt_object}), this.dt_object.ping_interval);
+
+	}.bind({dt_object: this}));
+
+	client.on('close', function() {
+
+		// stop pinging
+		clearInterval(ping);
+		this.dt_object.active_test_count--;
+
+		//console.log('disconnected from node in test_node()', node.ip, node.port, node.node_id);
+
+	}.bind({dt_object: this}));
+
+	client.on('timeout', function() {
+
+		//console.error('timeout connecting to node in test_node()', node.ip, node.port, node.node_id);
+		node.test_status = 'failed';
+		node.test_failures++;
+
+	}.bind({dt_object: this}));
+
+	client.on('error', function(err) {
+
+		//console.error('error connecting to node in test_node()', node.ip, node.port, node.node_id, err.toString());
+		node.test_status = 'failed';
+		node.test_failures++;
 
 	}.bind({dt_object: this}));
 
@@ -1068,32 +1094,6 @@ dt.prototype.test_node = function(node) {
 		}
 
 	});
-
-	client.on('close', function() {
-
-		// stop pinging
-		clearInterval(ping);
-		this.dt_object.active_test_count--;
-
-		//console.log('disconnected from node in test_node()', node.ip, node.port, node.node_id);
-
-	}.bind({dt_object: this}));
-
-	client.on('timeout', function() {
-
-		//console.error('timeout connecting to node in test_node()', node.ip, node.port, node.node_id);
-		node.test_status = 'failed';
-		node.test_failures++;
-
-	}.bind({dt_object: this}));
-
-	client.on('error', function(err) {
-
-		//console.error('error connecting to node in test_node()', node.ip, node.port, node.node_id, err.toString());
-		node.test_status = 'failed';
-		node.test_failures++;
-
-	}.bind({dt_object: this}));
 
 }
 
@@ -2464,6 +2464,24 @@ dt.prototype.defragment_node = function(node) {
 
 	}.bind({dt_object: this}));
 
+	client.on('close', function() {
+
+		//console.log('disconnected from node in defragment_node()', node.ip, node.port, node.node_id);
+
+	}.bind({dt_object: this}));
+
+	client.on('timeout', function() {
+
+		//console.error('timeout connecting to node in defragment_node()', node.ip, node.port, node.node_id);
+
+	}.bind({dt_object: this}));
+
+	client.on('error', function(err) {
+
+		//console.error('error connecting to node in defragment_node()', node.ip, node.port, node.node_id, err.toString());
+
+	}.bind({dt_object: this}));
+
 	// set client timeout of the socket
 	client.setTimeout(this.timeout);
 
@@ -2566,24 +2584,6 @@ dt.prototype.defragment_node = function(node) {
 		}
 
 	});
-
-	client.on('close', function() {
-
-		//console.log('disconnected from node in defragment_node()', node.ip, node.port, node.node_id);
-
-	}.bind({dt_object: this}));
-
-	client.on('timeout', function() {
-
-		//console.error('timeout connecting to node in defragment_node()', node.ip, node.port, node.node_id);
-
-	}.bind({dt_object: this}));
-
-	client.on('error', function(err) {
-
-		//console.error('error connecting to node in defragment_node()', node.ip, node.port, node.node_id, err.toString());
-
-	}.bind({dt_object: this}));
 
 }
 
