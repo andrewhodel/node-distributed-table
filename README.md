@@ -82,6 +82,12 @@ Maintain any number of dt nodes on the Internet and start your master node to re
 
 Store the file data in dt objects as base64 strings, compress it if you need to.
 
+# example 4. world valid DNS lookups
+
+Even DKIM could be spoofed if you modified the DNS response of the public key's DNS record.  Use dt to create a DNS resolver that resolves from many locations and validates that the results have not been modified using dt messages.
+
+Ensure that MX records are the same at every location before sending an email.
+
 # donate
 
 ## Bitcoin
