@@ -70,6 +70,13 @@ var dt = function(config) {
 	this.timeout = Number(config.timeout);
 	this.ping_interval = Number(config.ping_interval);
 
+	// debug settings, each shows itself and all those below
+	// 0	no debugging output
+	// 1	print client nodes connected to server and primary client connections
+	// 2	print clean loop output and primary client selection output
+	// 3	print messages and what node they are from
+	this.debug = Number(config.debug);
+
 	var m = Buffer.from('this is how each message is encrypted, be careful of javascript variable references and ignore those who harass with lies');
 	// move this console.log() statement to line 80 to see why javascript references can be confusing while you are being harassed with lies and don't have pointers
 	//console.log('\nencrypting', m);
@@ -108,11 +115,6 @@ var dt = function(config) {
 	this.message_duplicate_expire = 1000 * 60 * 5;
 	// only defrag this often
 	this.defrag_wait_period = 1000 * 60 * 10;
-	// debug settings, each shows itself and all those below
-	// 0	no debugging output
-	// 1	show nodes and primary client connects
-	// 2	show messages and what node they are from
-	this.debug = 0;
 
 	var c = 0;
 	while (c < config.nodes.length) {
@@ -142,9 +144,15 @@ var dt = function(config) {
 		// 'connection' listener.
 		// this is a new client
 
+		if (this.dt_object.debug >= 1) {
+			console.log('new client connected to server', conn.remoteAddress);
+		}
+
 		conn.on('close', function() {
-			//console.log('client disconnected');
-		});
+			if (this.dt_object.debug >= 1) {
+				console.log('client disconnected from server', conn.remoteAddress);
+			}
+		}.bind({dt_object: this.dt_object}));
 
 		conn.on('error', function(err) {
 			//console.error('client error', err);
@@ -152,6 +160,11 @@ var dt = function(config) {
 
 		if (ipac.test_ip_allowed(this.dt_object.ip_ac, conn.remoteAddress) === false) {
 			// this IP address has been blocked by node-ip-ac
+
+			if (this.dt_object.debug >= 1) {
+				console.log('client IP blocked when connecting to server', conn.remoteAddress);
+			}
+
 			conn.end();
 			return;
 		}
@@ -168,11 +181,16 @@ var dt = function(config) {
 
 			if (conn.node_connecting === true) {
 				// disconnect if the timeout is exceeded while connecting
+
+				if (this.dt_object.debug >= 1) {
+					console.log('client exceeded open timeout while connecting to server', conn.remoteAddress);
+				}
+
 				conn.end();
 				return;
 			}
 
-		}, this.dt_object.timeout);
+		}.bind({dt_object: this.dt_object}), this.dt_object.timeout);
 
 		// set the recv_msn
 		conn.recv_msn = 0;
@@ -212,14 +230,14 @@ var dt = function(config) {
 					if (conn.recv_msn !== vm.msn) {
 						// disconnect if client is sending out of sequence
 						if (this.dt_object.debug >= 1) {
-							console.log('socket disconnected per invalid message sequence number');
+							console.log('socket disconnected from main server by invalid message sequence number');
 						}
 						conn.end();
 						return;
 					} else if (vm.client_id !== conn.client_id && conn.recv_msn !== 0) {
 						// disconnect a different client_id after first message that sets the sequence number and client id before allowing any modifications
 						if (this.dt_object.debug >= 1) {
-							console.log('socket disconnected per invalid client_id');
+							console.log('socket disconnected from main server by invalid client_id');
 						}
 						conn.end();
 						return;
@@ -273,6 +291,10 @@ var dt = function(config) {
 							// add new node to this.nodes
 							var i = this.dt_object.nodes.push({ip: node_ip, port: vm.listening_port, is_self: false, origin_type: 'client', primary_connection_failures: 0, node_id: vm.node_id, conn: conn, rtt: -1, rtt_array: [], connected_as_primary: false, test_status: 'pending', test_failures: 0, last_ping_time: null, test_count: 0, primary_client_connect_count: 0, defrag_count: 0, last_defrag: Date.now(), last_test_success: null, last_data_time: Date.now()});
 							conn.node = this.dt_object.nodes[i];
+						}
+
+						if (this.dt_object.debug >= 1) {
+							console.log('new client sent valid open message', conn.remoteAddress, 'node_id', conn.node.node_id, 'origin_type', conn.node.origin_type);
 						}
 
 						// after the local node entry has been updated with the node_id
@@ -467,8 +489,8 @@ dt.prototype.connect = function() {
 		clearInterval(waiter);
 
 		// connect to a node
-		if (this.dt_object.debug >= 1) {
-			console.log('primary client connect, total nodes', this.dt_object.nodes.length);
+		if (this.dt_object.debug >= 2) {
+			console.log('primary client selection, total nodes', this.dt_object.nodes.length);
 		}
 
 		// find the node with the lowest primary_connection_failures
@@ -494,11 +516,15 @@ dt.prototype.connect = function() {
 
 			var n_avg = this.dt_object.rtt_avg(n.rtt_array);
 
-			//console.log('test primary node against primary_connection_failures', n.node_id, n.ip, n.port, n.primary_connection_failures);
+			if (this.dt_object.debug >= 2) {
+				console.log('potential primary node to connect to', n.node_id, n.ip, n.port, 'primary_connection_failures', n.primary_connection_failures);
+			}
 
 			if (n.is_self === true) {
 				// do not attempt connection to self
-				//console.log('\tskipped as self');
+				if (this.dt_object.debug >= 2) {
+					console.log('\tpotential node skipped, is this node');
+				}
 				c++;
 				continue;
 			}
@@ -506,7 +532,9 @@ dt.prototype.connect = function() {
 			if (this.dt_object.node_connected(n) === true) {
 				// do not attempt connection to nodes that are already connected
 				// a connection object means the node is connected
-				//console.log('\tskipped as connected client');
+				if (this.dt_object.debug >= 2) {
+					console.log('\tpotential node skipped, already connected as client');
+				}
 				c++;
 				continue;
 			}
@@ -561,7 +589,7 @@ dt.prototype.connect = function() {
 		if (this.dt_object.primary_node === null) {
 			// this node has no nodes to connect to
 			// it should stay on to allow nodes to connect to it
-			if (this.dt_object.debug >= 1) {
+			if (this.dt_object.debug >= 2) {
 				console.log('primary client connect, no nodes ready for connection');
 			}
 
@@ -1124,7 +1152,7 @@ dt.prototype.clean = function() {
 		}
 
 		// show debug output
-		if (this.dt_object.debug >= 1) {
+		if (this.dt_object.debug >= 2) {
 			console.log('\nnode id: ' + this.dt_object.node_id);
 			console.log('server has ' + this.dt_object.server._connections + ' connections on port', this.dt_object.port);
 			if (this.dt_object.client) {
@@ -1233,7 +1261,7 @@ dt.prototype.clean = function() {
 				}
 			}
 
-			if (this.dt_object.debug >= 1) {
+			if (this.dt_object.debug >= 2) {
 				console.log('## connected: ' + this.dt_object.node_connected(n) + ', connected_as_primary: ' + n.connected_as_primary + ', origin_type: ' + n.origin_type + ', test_failures: ' + n.test_failures + ', test_status: ' + n.test_status + ', ' + n.ip + ':' + n.port + ', node_id: ' + n.node_id + ', primary_connection_failures: ' + n.primary_connection_failures + ', last_ping_time: ' + ((Date.now() - n.last_ping_time) / 1000) + 's ago, test_start: ' + ((Date.now() - n.test_start) / 1000) + 's ago, rtt_array(' + n.rtt_array.length + '): ' + this.dt_object.rtt_avg(n.rtt_array) + 'ms AVG RTT, rtt: ' + n.rtt + 'ms RTT, primary_client_connect_count: ' + n.primary_client_connect_count + ', test_count: ' + n.test_count + ', defrag_count: ' + n.defrag_count + ', last_data_time: ' + ((Date.now() - n.last_data_time) / 1000) + 's ago');
 			}
 
@@ -1778,7 +1806,7 @@ dt.prototype.valid_server_message = function(conn, j) {
 			n++;
 		}
 
-		if (this.debug >= 2) {
+		if (this.debug >= 3) {
 			console.log(conn.node.node_id, conn.node.ip, conn.node.port, 'sent a message to this node as a client', j);
 		}
 
@@ -2044,7 +2072,7 @@ dt.prototype.valid_primary_client_message = function(j) {
 			n++;
 		}
 
-		if (this.debug >= 2) {
+		if (this.debug >= 3) {
 			console.log(this.primary_node.node_id, this.primary_node.ip, this.primary_node.port, 'sent a message to this node as a server', j);
 		}
 
@@ -2311,7 +2339,7 @@ dt.prototype.send_message = function(j) {
 	// send the object to the server
 	this.client_send({type: 'message', message: j, message_id: mid});
 
-	if (this.debug >= 2 && this.primary_node !== null) {
+	if (this.debug >= 3 && this.primary_node !== null) {
 		console.log('this node sent a message to server', this.primary_node.node_id, this.primary_node.ip, this.primary_node.port, mid, j);
 	}
 
@@ -2324,7 +2352,7 @@ dt.prototype.send_message = function(j) {
 		} else if (this.node_connected(n) === true) {
 			this.server_send(n.conn, {type: 'message', message: j, message_id: mid});
 
-			if (this.debug >= 2) {
+			if (this.debug >= 3) {
 				console.log('this node sent a message to client', n.node_id, n.ip, n.port, mid);
 			}
 
