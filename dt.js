@@ -2112,7 +2112,7 @@ dt.prototype.valid_primary_client_message = function(j) {
 			c++;
 		}
 
-		//console.log('client sent remove_object to this node', sha256_hash);
+		//console.log('server sent remove_object to this node', sha256_hash);
 
 		// send the hash to all the clients
 		var c = 0;
@@ -2428,6 +2428,7 @@ dt.prototype.remove_object = function(h) {
 		while (c < this.objects.length) {
 			var obj = this.objects[c];
 			if (obj[0] === sha256_hash) {
+				this.emitter.emit('object_removed', obj[1]);
 				this.objects.splice(c, 1);
 				break;
 			}

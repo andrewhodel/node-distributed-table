@@ -46,13 +46,14 @@ setInterval(function() {
 	// add random object
 	dt_node.add_object({randomUuid: crypto.randomUUID()});
 
-	if (dt_node.objects.length >= 200) {
+	var max_objects = 500;
+	if (dt_node.objects.length >= max_objects) {
 		// randomly remove a small number of objects
-		var number_to_remove = crypto.randomInt(1, 200);
+		var number_to_remove = crypto.randomInt(1, max_objects - Math.round(max_objects/3));
 		var c = 0;
 		while (c < number_to_remove) {
 			var index_to_remove = crypto.randomInt(0, dt_node.objects.length - 1);
-			dt_node.remove_object(dt_node.objects[index_to_remove]);
+			dt_node.remove_object(dt_node.objects[index_to_remove][1]);
 			c++;
 		}
 	}
