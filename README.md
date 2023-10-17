@@ -26,9 +26,11 @@ Run 2 nodes, each on a different port on localhost.
 
 Each writes the output to a log file in the current working directory that is truncated and stores the newest data.
 
+Any errors will be in ./1.log and ./2.log
+
 ```
-node example1_master_load_test.js > /dev/null 2>&1 &
-node example2_load_test.js > /dev/null 2>&1 &
+node example1_master_load_test.js > ./1.log 2>&1 &
+node example2_load_test.js > ./2.log 2>&1 &
 ```
 
 Read the files periodically, if the total object count stops changing 3 iterations in a row the process exits and the log file remains with the connected node data.
