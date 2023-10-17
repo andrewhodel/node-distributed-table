@@ -33,7 +33,7 @@ node example2_load_test.js > /dev/null 2>&1 &
 
 Read the files periodically, if the total object count stops changing 3 iterations in a row the process exits and the log file remains with the connected node data.
 
-Each log file will be no larger than 10MB.
+Each log file will be no larger than 10 million utf-8 characters, near 10MB.
 
 ```
 cat example1_master_load_test.log
