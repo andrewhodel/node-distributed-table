@@ -828,6 +828,7 @@ dt.prototype.connect = function() {
 
 				} catch (err) {
 					console.error('error in primary client authorization to server', err);
+					console.error('decrypted input data', decrypted);
 					return;
 				}
 
