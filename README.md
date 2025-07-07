@@ -8,6 +8,8 @@ IPv4 and IPv6 are supported.
 
 `git clone --recursive https://github.com/andrewhodel/node-distributed-table`
 
+Then place `node-ip-ac` in `node-distributed-table/node_modules`.
+
 # example
 
 Run 5 nodes, each on a different port on localhost.

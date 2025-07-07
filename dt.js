@@ -27,7 +27,7 @@ SOFTWARE.
 var crypto = require('crypto');
 var net = require('net');
 var events = require('events');
-var ipac = require('./node-ip-ac/node-ip-ac.js');
+var ipac = require('node-ip-ac');
 
 var dt = function(config) {
 
@@ -253,7 +253,7 @@ var dt = function(config) {
 						conn.node_connecting = false;
 
 						// this is an authorized connection
-						ipac.modify_auth(this.dt_object.ip_ac, true, conn.remoteAddress);
+						ipac.modify_auth(this.dt_object.ip_ac, 'valid_login', conn.remoteAddress);
 
 						// get the node ip address
 						var node_ip = this.dt_object.clean_remote_address(conn.remoteAddress);
@@ -364,7 +364,7 @@ var dt = function(config) {
 					//console.error('error in server with a client authorization', err);
 					// if the decrypted message does not parse into JSON
 					// logout this ip in node-ip-ac
-					ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
+					ipac.modify_auth(this.dt_object.ip_ac, 'logout', conn.remoteAddress);
 					conn.end();
 					return;
 				}
@@ -408,7 +408,7 @@ var dt = function(config) {
 					if (chunk.length < 6) {
 						// the chunk is not long enough, it should be at least 4 bytes for the message length and at least 2 bytes for {}
 						// logout this ip in node-ip-ac
-						ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
+						ipac.modify_auth(this.dt_object.ip_ac, 'logout', conn.remoteAddress);
 						conn.end();
 						return;
 					}
@@ -421,7 +421,7 @@ var dt = function(config) {
 						// if more than 1000 bytes are sent
 						if (data_len > 1000 || data.length > 1000 || chunk.length > 1000) {
 							// logout this ip in node-ip-ac
-							ipac.modify_auth(this.dt_object.ip_ac, undefined, conn.remoteAddress);
+							ipac.modify_auth(this.dt_object.ip_ac, 'logout', conn.remoteAddress);
 							// disconnect the socket
 							conn.end();
 							return;
